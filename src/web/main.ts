@@ -1,3 +1,4 @@
+import pkg from '../../package.json' with { type: 'json' };
 import { diffElpx, type ElpxDiff } from '../diff.js';
 import type { Lang } from '../i18n.js';
 import { renderHtml } from '../render.js';
@@ -40,6 +41,15 @@ const UI = {
     copy: 'Copiar',
     copied: 'Copiado',
     close: 'Cerrar',
+    source: 'Código fuente',
+    license: 'Software libre (AGPL-3.0)',
+    licenses: 'Licencias',
+    licensesTitle: 'Licencias y créditos',
+    licensesIntro:
+      'elpx-diff es software libre: puedes usarlo, estudiarlo, modificarlo y compartirlo según la licencia GNU Affero General Public License, versión 3 o posterior.',
+    licensesApp: 'Licencia de elpx-diff (AGPL-3.0)',
+    licensesComponents: 'Componentes incluidos',
+    licensesAte: 'El logotipo del ATE es propiedad del Área de Tecnología Educativa del Gobierno de Canarias.',
     other: 'English',
   },
   en: {
@@ -78,6 +88,15 @@ const UI = {
     copy: 'Copy',
     copied: 'Copied',
     close: 'Close',
+    source: 'Source code',
+    license: 'Free software (AGPL-3.0)',
+    licenses: 'Licenses',
+    licensesTitle: 'Licenses and credits',
+    licensesIntro:
+      'elpx-diff is free software: you may use, study, modify and share it under the GNU Affero General Public License, version 3 or later.',
+    licensesApp: 'elpx-diff license (AGPL-3.0)',
+    licensesComponents: 'Bundled components',
+    licensesAte: 'The ATE logo belongs to the Educational Technology Area of the Government of the Canary Islands.',
     other: 'Español',
   },
 };
@@ -237,5 +256,9 @@ $('print').addEventListener('click', () => {
   for (const d of result.querySelectorAll('details')) d.open = true;
   window.print();
 });
+
+const version = $<HTMLAnchorElement>('version');
+version.textContent = `v${pkg.version}`;
+version.href = `https://github.com/ateeducacion/elpx-diff/releases/tag/v${pkg.version}`;
 
 paint();

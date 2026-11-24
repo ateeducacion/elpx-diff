@@ -100,6 +100,25 @@ test('the CLI and Skill pills open their panels; commands can be copied; Close c
   expect(skill.open).toBe(false);
 });
 
+test('the footer names the licence, links the version and opens the licences of what is bundled', () => {
+  expect(document.querySelector('.licence')!.textContent).toBe('Software libre (AGPL-3.0)');
+  const version = $<HTMLAnchorElement>('version');
+  expect(version.textContent).toMatch(/^v\d+\.\d+\.\d+$/);
+  expect(version.href).toBe(`https://github.com/ateeducacion/elpx-diff/releases/tag/${version.textContent}`);
+  const panel = $<HTMLDialogElement>('licenses-panel');
+  document.querySelector<HTMLElement>('[data-open="licenses-panel"]')!.click();
+  expect(panel.open).toBe(true);
+  expect(panel.querySelector('h2')!.textContent).toBe('Licencias y créditos');
+  expect([...panel.querySelectorAll('.components span')].map((x) => x.textContent)).toEqual([
+    'BSD-3-Clause',
+    'BSD-2-Clause',
+    'MIT',
+    'OFL-1.1',
+  ]);
+  panel.querySelector<HTMLElement>('[data-close]')!.click();
+  expect(panel.open).toBe(false);
+});
+
 test('one file is not enough; the second one starts the comparison', async () => {
   choose('before', file(v1(), 'v1.elpx'));
   expect($('drop-before').classList.contains('filled')).toBe(true);

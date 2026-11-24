@@ -106,9 +106,23 @@
           <img src="./ate-logo.png" alt="" width="40" height="41" />
           <span data-t="madeBy"></span>
         </a>
-        <a class="repo" href="https://github.com/ateeducacion/elpx-diff" target="_blank" rel="noopener noreferrer"
-          >github.com/ateeducacion/elpx-diff</a
-        >
+        <div class="footer-links">
+          <a
+            href="https://github.com/ateeducacion/elpx-diff"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-t="source"
+          ></a>
+          <a class="repo" id="version" target="_blank" rel="noopener noreferrer"></a>
+          <button
+            type="button"
+            class="link"
+            data-open="licenses-panel"
+            aria-haspopup="dialog"
+            data-t="licenses"
+          ></button>
+          <span class="licence" data-t="license"></span>
+        </div>
       </div>
     </footer>
     <dialog id="cli-panel" aria-labelledby="cli-title">
@@ -160,6 +174,44 @@ echo "*.elpx diff=elpx" >> .gitattributes</code></pre>
           rel="noopener noreferrer"
           >SKILL.md</a
         >
+        <button type="button" class="primary" data-close data-t="close"></button>
+      </div>
+    </dialog>
+    <dialog id="licenses-panel" aria-labelledby="licenses-title">
+      <h2 id="licenses-title" data-t="licensesTitle"></h2>
+      <p data-t="licensesIntro"></p>
+      <p>
+        <a
+          href="https://github.com/ateeducacion/elpx-diff/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-t="licensesApp"
+        ></a>
+      </p>
+      <h3 data-t="licensesComponents"></h3>
+      <ul class="components">
+        <li>
+          <a href="https://github.com/kpdecker/jsdiff" target="_blank" rel="noopener noreferrer">diff (jsdiff)</a>
+          <span>BSD-3-Clause</span>
+        </li>
+        <li>
+          <a href="https://github.com/fb55/entities" target="_blank" rel="noopener noreferrer">entities</a>
+          <span>BSD-2-Clause</span>
+        </li>
+        <li>
+          <a href="https://github.com/101arrowz/fflate" target="_blank" rel="noopener noreferrer">fflate</a>
+          <span>MIT</span>
+        </li>
+        <li>
+          <a href="https://github.com/IBM/plex" target="_blank" rel="noopener noreferrer"
+            >IBM Plex Sans, IBM Plex Mono</a
+          >
+          <span>OFL-1.1</span>
+        </li>
+      </ul>
+      <p data-t="licensesAte"></p>
+      <div class="dialog-end">
+        <span></span>
         <button type="button" class="primary" data-close data-t="close"></button>
       </div>
     </dialog>
