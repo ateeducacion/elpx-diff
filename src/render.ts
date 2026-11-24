@@ -171,6 +171,8 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en'): string {
 <li class="stat modified"><b>${s.modified}</b> ${t.modifiedMany}</li>
 <li class="stat removed"><b>−${s.removed}</b> ${t.removedMany}</li></ul>${diff.identical ? `<p class="identical">${t.identical}</p>` : ''}</section>`;
 
+  /** Long lists start folded, so a project with hundreds of files does not bury the pages. */
+  const fold = (rows: number): string => (rows > 30 ? '' : ' open');
   const pages = `<section><h2>${t.pages}</h2>${diff.pages
     .map(
       (p, n) =>
@@ -188,21 +190,21 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en'): string {
     .join('')}</section>`;
 
   const metadata = diff.metadata.length
-    ? `<section id="metadata"><h2>${t.metadata}</h2><div class="scroll"><table><thead><tr><th scope="col">${t.property}</th><th scope="col">${t.before}</th><th scope="col">${t.after}</th></tr></thead><tbody>${diff.metadata
+    ? `<section id="metadata"><details${fold(diff.metadata.length)}><summary><h2>${t.metadata} (${diff.metadata.length})</h2></summary><div class="scroll"><table><thead><tr><th scope="col">${t.property}</th><th scope="col">${t.before}</th><th scope="col">${t.after}</th></tr></thead><tbody>${diff.metadata
         .map(
           (m) =>
             `<tr><th scope="row"><code>${esc(m.key)}</code></th><td>${m.before === undefined ? '' : `<del>${esc(m.before)}</del>`}</td><td>${m.after === undefined ? '' : `<ins>${esc(m.after)}</ins>`}</td></tr>`,
         )
-        .join('')}</tbody></table></div></section>`
+        .join('')}</tbody></table></div></details></section>`
     : '';
 
   const resources = diff.resources.length
-    ? `<section id="resources"><h2>${t.resources}</h2><ul class="resources">${diff.resources
+    ? `<section id="resources"><details${fold(diff.resources.length)}><summary><h2>${t.resources} (${diff.resources.length})</h2></summary><ul class="resources">${diff.resources
         .map(
           (r) =>
             `<li class="${r.status}">${badge(r.status)}<span class="path">${r.oldPath ? `<del>${esc(r.oldPath)}</del> → ` : ''}${esc(r.path)}</span><span class="size">${sizes(r)}</span></li>`,
         )
-        .join('')}</ul></section>`
+        .join('')}</ul></details></section>`
     : '';
 
   // The index: the page tree with the sign of each page, as the file list of a code review.

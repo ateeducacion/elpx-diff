@@ -25,6 +25,21 @@ const UI = {
     print: 'Imprimir',
     onlyChanges: 'Solo lo que cambia',
     madeBy: 'Creado por el Área de Tecnología Educativa del Gobierno de Canarias',
+    cliTitle: 'Desde la terminal',
+    cliIntro:
+      'La misma comparación en la línea de órdenes, con Node.js 22 o posterior. Sale con 0 si no hay diferencias y con 1 si las hay.',
+    cliReport: 'Guardar un informe HTML',
+    cliGit: 'Que git diff muestre los .elpx como texto',
+    skillTitle: 'Skill para asistentes de IA',
+    skillIntro:
+      'Instrucciones para que un agente (Claude Code, Codex, Cursor…) compare dos proyectos con elpx-diff y te resuma los cambios.',
+    skillNpx: 'Con npx skills',
+    skillGh: 'Con GitHub CLI',
+    skillNote: 'La skill usa la línea de órdenes de elpx-diff a través de npx.',
+    docs: 'Documentación',
+    copy: 'Copiar',
+    copied: 'Copiado',
+    close: 'Cerrar',
     other: 'English',
   },
   en: {
@@ -48,6 +63,21 @@ const UI = {
     print: 'Print',
     onlyChanges: 'Only what changes',
     madeBy: 'Made by the Educational Technology Area of the Government of the Canary Islands',
+    cliTitle: 'From the terminal',
+    cliIntro:
+      'The same comparison on the command line, with Node.js 22 or later. It exits with 0 when there are no differences and with 1 when there are.',
+    cliReport: 'Save an HTML report',
+    cliGit: 'Make git diff show .elpx files as text',
+    skillTitle: 'Skill for AI assistants',
+    skillIntro:
+      'Instructions for an agent (Claude Code, Codex, Cursor…) to compare two projects with elpx-diff and summarize the changes.',
+    skillNpx: 'With npx skills',
+    skillGh: 'With the GitHub CLI',
+    skillNote: 'The skill uses the elpx-diff command line through npx.',
+    docs: 'Documentation',
+    copy: 'Copy',
+    copied: 'Copied',
+    close: 'Close',
     other: 'Español',
   },
 };
@@ -173,6 +203,21 @@ $('lang').addEventListener('click', () => {
   localStorage.setItem('lang', lang);
   paint();
 });
+
+// The CLI and Skill panels: native dialogs, with a copy button on each command.
+for (const button of document.querySelectorAll<HTMLElement>('[data-open]')) {
+  button.addEventListener('click', () => $<HTMLDialogElement>(button.dataset['open']!).showModal());
+}
+for (const button of document.querySelectorAll<HTMLElement>('[data-close]')) {
+  button.addEventListener('click', () => button.closest('dialog')!.close());
+}
+for (const button of document.querySelectorAll<HTMLElement>('[data-copy]')) {
+  button.addEventListener('click', () => {
+    void navigator.clipboard.writeText(button.parentElement!.querySelector('code')!.textContent).then(() => {
+      button.textContent = UI[lang].copied;
+    });
+  });
+}
 
 function save(name: string, type: string, text: string): void {
   const a = document.createElement('a');

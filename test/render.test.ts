@@ -134,7 +134,7 @@ test('HTML: summary, sections, badges and the diff lines', async () => {
   const html = renderHtml(await changes(), 'es');
   expect(html).toContain('<li class="stat added"><b>+3</b> Añadidos</li>');
   expect(html).toContain('<li class="stat removed"><b>−2</b> Eliminados</li>');
-  expect(html).toContain('<section id="metadata"><h2>Metadatos</h2>');
+  expect(html).toContain('<section id="metadata"><details open><summary><h2>Metadatos (1)</h2></summary>');
   expect(html).toContain('<td></td><td><ins>ATE</ins></td>');
   expect(html).toContain('<details id="page-0" class="page modified depth-0" open>');
   expect(html).toContain(
@@ -155,6 +155,9 @@ test('HTML: summary, sections, badges and the diff lines', async () => {
   expect(html).toContain('<article class="idevice removed">');
   expect(html).toContain(
     '<li class="renamed"><span class="badge renamed">Renombrado</span><span class="path"><del>content/resources/guia.pdf</del> → content/resources/manual.pdf</span>',
+  );
+  expect(html).toContain(
+    '<section id="resources"><details open><summary><h2>Archivos (3)</h2></summary><ul class="resources">',
   );
   expect(html).not.toContain('class="identical"');
   // The index: every page with its sign, and links to the other sections that changed.
@@ -215,6 +218,18 @@ test('HTML: identical projects, long snippets, empty iDevices, skipped runs, dep
   );
   const anonymous = renderHtml(await diffElpx(box('', 'P'), box('', 'P')), 'en');
   expect(anonymous).toContain('<div class="block unchanged"><details');
+});
+
+test('HTML: long lists start folded', async () => {
+  const files = (n: number): Record<string, string> =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`content/resources/f${i}.txt`, 'x']));
+  const page: P[] = [{ id: 'p', title: 'P' }];
+  expect(renderHtml(await diffElpx(elpx(page), elpx(page, files(30))), 'en')).toContain(
+    '<details open><summary><h2>Files (30)</h2>',
+  );
+  expect(renderHtml(await diffElpx(elpx(page), elpx(page, files(31))), 'en')).toContain(
+    '<details><summary><h2>Files (31)</h2>',
+  );
 });
 
 test('project text is never inserted as markup', async () => {

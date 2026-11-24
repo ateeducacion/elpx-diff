@@ -30,6 +30,7 @@ const stats = (): string => (document.querySelector('.stats')?.textContent ?? ''
 
 const saved: { name: string; blob: Blob }[] = [];
 let printed = 0;
+const copied: string[] = [];
 
 beforeAll(async () => {
   GlobalRegistrator.register({ url: 'http://localhost/' });
@@ -44,6 +45,10 @@ beforeAll(async () => {
     saved.push({ name: this.download, blob: last });
   };
   window.print = (): void => void printed++;
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: async (text: string) => void copied.push(text) },
+    configurable: true,
+  });
   await import('../src/web/main.js');
 });
 afterAll(() => GlobalRegistrator.unregister());
@@ -72,6 +77,27 @@ test('the theme button switches between dark and light, labels its next state an
   delete document.documentElement.dataset['theme'];
   $('theme').click();
   expect(document.documentElement.dataset['theme']).toBe('dark');
+});
+
+test('the CLI and Skill pills open their panels; commands can be copied; Close closes', async () => {
+  const [cli, skill] = [$<HTMLDialogElement>('cli-panel'), $<HTMLDialogElement>('skill-panel')];
+  expect(cli.open).toBe(false);
+  document.querySelector<HTMLElement>('[data-open="cli-panel"]')!.click();
+  expect(cli.open).toBe(true);
+  expect(cli.querySelector('h2')!.textContent).toBe('Desde la terminal');
+  const copy = cli.querySelector<HTMLElement>('[data-copy]')!;
+  expect(copy.textContent).toBe('Copiar');
+  copy.click();
+  await until(() => copy.textContent === 'Copiado');
+  expect(copied).toEqual(['npx elpx-diff anterior.elpx nueva.elpx']);
+  cli.querySelector<HTMLElement>('[data-close]')!.click();
+  expect(cli.open).toBe(false);
+
+  document.querySelector<HTMLElement>('[data-open="skill-panel"]')!.click();
+  expect(skill.open).toBe(true);
+  expect(skill.textContent).toContain('npx skills add ateeducacion/elpx-diff');
+  skill.querySelector<HTMLElement>('[data-close]')!.click();
+  expect(skill.open).toBe(false);
 });
 
 test('one file is not enough; the second one starts the comparison', async () => {

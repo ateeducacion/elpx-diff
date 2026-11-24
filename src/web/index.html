@@ -24,13 +24,17 @@
       <div>
         <h1>elpx-diff</h1>
         <p class="tagline" data-t="tagline"></p>
-        <button type="button" class="link" id="lang" lang="en">English</button>
-        <button type="button" class="icon" id="theme" aria-label="">
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
-            <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
-          </svg>
-        </button>
+        <div class="tools">
+          <button type="button" class="pill" data-open="cli-panel" aria-haspopup="dialog">CLI</button>
+          <button type="button" class="pill" data-open="skill-panel" aria-haspopup="dialog">Skill</button>
+          <button type="button" class="link" id="lang" lang="en">English</button>
+          <button type="button" class="icon" id="theme" aria-label="">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
     <main>
@@ -77,6 +81,58 @@
         >
       </div>
     </footer>
+    <dialog id="cli-panel" aria-labelledby="cli-title">
+      <h2 id="cli-title" data-t="cliTitle"></h2>
+      <p data-t="cliIntro"></p>
+      <div class="code">
+        <pre><code>npx elpx-diff anterior.elpx nueva.elpx</code></pre>
+        <button type="button" data-copy data-t="copy"></button>
+      </div>
+      <h3 data-t="cliReport"></h3>
+      <div class="code">
+        <pre><code>npx elpx-diff anterior.elpx nueva.elpx --html -o cambios.html</code></pre>
+        <button type="button" data-copy data-t="copy"></button>
+      </div>
+      <h3 data-t="cliGit"></h3>
+      <div class="code">
+        <pre><code>git config diff.elpx.textconv "npx -y elpx-diff textconv"
+echo "*.elpx diff=elpx" >> .gitattributes</code></pre>
+        <button type="button" data-copy data-t="copy"></button>
+      </div>
+      <div class="dialog-end">
+        <a
+          href="https://github.com/ateeducacion/elpx-diff#cli"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-t="docs"
+        ></a>
+        <button type="button" class="primary" data-close data-t="close"></button>
+      </div>
+    </dialog>
+    <dialog id="skill-panel" aria-labelledby="skill-title">
+      <h2 id="skill-title" data-t="skillTitle"></h2>
+      <p data-t="skillIntro"></p>
+      <h3 data-t="skillNpx"></h3>
+      <div class="code">
+        <pre><code>npx skills add ateeducacion/elpx-diff</code></pre>
+        <button type="button" data-copy data-t="copy"></button>
+      </div>
+      <h3 data-t="skillGh"></h3>
+      <div class="code">
+        <pre><code>gh skill install ateeducacion/elpx-diff elpx-diff</code></pre>
+        <button type="button" data-copy data-t="copy"></button>
+      </div>
+      <p data-t="skillNote"></p>
+      <div class="dialog-end">
+        <a
+          href="https://github.com/ateeducacion/elpx-diff/blob/main/skills/elpx-diff/SKILL.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          >SKILL.md</a
+        >
+        <button type="button" class="primary" data-close data-t="close"></button>
+      </div>
+    </dialog>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
