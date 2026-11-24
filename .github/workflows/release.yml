@@ -1,0 +1,77 @@
+name: Release
+
+# On every published GitHub release: the web app goes to GitHub Pages and the
+# package (CLI + library) to npm when the repository variable NPM_PUBLISH is
+# "true" (see "Publishing" in the README). Run by hand with an existing tag to
+# deploy that release's web app again.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag or branch to deploy to GitHub Pages
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # bun build --dts and the rest of the tool chain need canary, as in CI.
+  BUN_VERSION: canary
+  NODE_VERSION: 24
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  pages:
+    name: Web app on GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "${{ env.BUN_VERSION }}" }
+      - run: bun ci
+      - uses: actions/configure-pages@v6
+      - run: bun run build
+      - uses: actions/upload-pages-artifact@v5
+        with: { path: dist/web }
+      - id: deploy
+        uses: actions/deploy-pages@v5
+
+  npm:
+    name: npm package
+    # Off until the package exists on npm with this workflow as its trusted publisher.
+    if: github.event_name == 'release' && vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance, no token stored
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "${{ env.BUN_VERSION }}" }
+      - uses: actions/setup-node@v7
+        with: { node-version: "${{ env.NODE_VERSION }}", registry-url: "https://registry.npmjs.org" }
+      - run: bun ci
+      - run: bun run check
+      - run: bun run build
+      # Trusted publishing (OIDC) needs npm 11.5.1 or newer.
+      - run: npm install -g npm@11
+      - name: The package version is the release tag
+        run: test "v$(node -p "require('./package.json').version")" = "${{ github.event.release.tag_name }}"
+      - run: npm publish --provenance --access public --ignore-scripts

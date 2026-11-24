@@ -1,0 +1,61 @@
+{
+  "name": "elpx-diff",
+  "version": "0.1.0",
+  "description": "Visual diff for eXeLearning .elpx projects: pages, iDevices, metadata and resources. CLI, static web app and library.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ateeducacion/elpx-diff.git"
+  },
+  "homepage": "https://github.com/ateeducacion/elpx-diff",
+  "keywords": [
+    "exelearning",
+    "elpx",
+    "diff",
+    "education",
+    "oer"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "elpx-diff": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/*.js",
+    "dist/*.d.ts"
+  ],
+  "scripts": {
+    "dev": "bun src/web/index.html",
+    "cli": "bun src/bin.ts",
+    "build": "bun scripts/build.ts",
+    "lint": "bun lint && bun fmt --check",
+    "fix": "bun lint --fix && bun fmt",
+    "format": "bun fmt",
+    "typecheck": "bun check --no-script",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "check:lockfile": "bun scripts/check-lockfile.ts",
+    "check": "bun run lint && bun run typecheck && bun run test:coverage",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "entities": "^9.0.0",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^21.0.4",
+    "@types/bun": "^1.4.5",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0"
+  },
+  "packageManager": "bun@1.4.5"
+}

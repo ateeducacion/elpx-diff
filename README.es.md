@@ -1,0 +1,57 @@
+# elpx-diff
+
+[English](README.md)
+
+Muestra qué ha cambiado entre dos versiones de un proyecto de [eXeLearning](https://exelearning.net)
+(`.elpx`): páginas, iDevices, metadatos y archivos, en el verde y rojo de un diff de toda la vida.
+
+- **Aplicación web** — <https://ateeducacion.github.io/elpx-diff/>. Se sueltan los dos archivos y
+  no se sube nada a ningún servidor.
+- **Línea de órdenes** — `npx elpx-diff anterior.elpx nueva.elpx`
+- **Biblioteca** — `import { diffElpx } from 'elpx-diff'`
+- **Skill para agentes de IA** — [`skills/elpx-diff`](skills/elpx-diff/SKILL.md)
+
+Lee `content.xml` (la fuente editable del paquete), así que compara lo que escribió el autor y no
+el HTML generado. Informa de:
+
+- páginas añadidas, eliminadas, renombradas y movidas;
+- cajas e iDevices añadidos, eliminados, movidos y editados, con el diff por líneas y palabras de
+  su texto (imágenes, multimedia y enlaces incluidos; los datos de los juegos se descodifican);
+- propiedades del proyecto (título, autoría, licencia, estilo…);
+- archivos añadidos, eliminados, cambiados y renombrados (`content/resources/`).
+
+Las páginas y los iDevices se emparejan por su identificador, y por título y contenido cuando una
+herramienta ha regenerado los identificadores.
+
+## Línea de órdenes
+
+```sh
+elpx-diff anterior.elpx nueva.elpx                       # informe en color en la terminal
+elpx-diff anterior.elpx nueva.elpx --json                # un documento JSON
+elpx-diff anterior.elpx nueva.elpx --html -o cambios.html  # informe HTML autónomo, sin scripts
+elpx-diff textconv proyecto.elpx                         # un proyecto como texto plano
+```
+
+`--lang es|en` elige el idioma (por defecto, el de `LANG`) y `--no-color` quita los colores.
+Código de salida: `0` sin diferencias, `1` con diferencias, `2` error.
+
+### Git
+
+```sh
+git config diff.elpx.textconv "elpx-diff textconv"
+echo "*.elpx diff=elpx" >> .gitattributes
+```
+
+A partir de ahí `git diff`, `git log -p` y `git show` enseñan los cambios de los `.elpx` como texto.
+
+## Límites
+
+- No admite proyectos `.elp` antiguos (eXeLearning 2.x): hay que guardarlos antes como `.elpx`.
+- No admite ZIP64 (archivos de más de 4 GiB).
+- La comparación es textual. Los cambios que solo afectan al formato se señalan, sin detalle.
+
+El resto (biblioteca, seguridad, desarrollo y publicación) está en el [README en inglés](README.md).
+
+## Licencia
+
+[AGPL-3.0-or-later](LICENSE). Creado por el Área de Tecnología Educativa (ATE) del Gobierno de Canarias.

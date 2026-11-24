@@ -1,0 +1,46 @@
+[test]
+coverageReporter = ["text", "lcov"]
+coverageSkipTestFiles = true
+# bin.ts only wires process streams to main(); cli.test.ts runs it in a real subprocess, which coverage cannot see.
+coveragePathIgnorePatterns = ["test/**", "src/bin.ts", "node_modules/**"]
+# Bun applies the threshold to every file, not to the total.
+coverageThreshold = { lines = 0.9, functions = 0.9 }
+
+# Lint (bun lint): Bun's defaults (ESLint and typescript-eslint recommended) plus these.
+[lint]
+ignorePatterns = ["dist/", "coverage/"]
+
+[lint.rules]
+"no-console" = ["error", { allow = ["warn", "error"] }]
+"eqeqeq" = ["error", "smart"]
+"prefer-const" = "error"
+
+[[lint.overrides]]
+files = ["scripts/**"]
+rules = { "no-console" = "off" }
+
+# The library runs in browsers, Node and Bun: web APIs only. Node modules belong to the CLI.
+[[lint.overrides]]
+files = ["src/**"]
+excludeFiles = ["src/cli.ts", "src/bin.ts"]
+
+[lint.overrides.rules]
+"no-restricted-globals" = ["error", { name = "Bun", message = "The library also runs in browsers and Node." }]
+"no-restricted-imports" = [
+  "error",
+  { patterns = [
+    { group = ["node:*", "bun", "bun:*"], message = "The library also runs in browsers: no Node or Bun modules outside the CLI." },
+  ] },
+]
+
+# Format (bun fmt): Prettier's output.
+[fmt]
+printWidth = 120
+singleQuote = true
+trailingComma = "all"
+sortImports = true
+ignorePatterns = ["dist/", "coverage/", "LICENSE"]
+
+[[fmt.overrides]]
+files = ["**/*.css", "**/*.yml", "**/*.yaml"]
+options = { singleQuote = false }

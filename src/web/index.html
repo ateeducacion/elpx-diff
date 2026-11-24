@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>ELPX Diff — comparador de proyectos eXeLearning</title>
+    <meta
+      name="description"
+      content="Compara dos versiones de un proyecto de eXeLearning (.elpx) y mira qué ha cambiado: páginas, iDevices, metadatos y archivos. Todo ocurre en tu navegador."
+    />
+    <meta name="author" content="Área de Tecnología Educativa (ATE), Gobierno de Canarias" />
+    <meta name="theme-color" content="#3f4c8a" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./fonts.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <h1>elpx-diff</h1>
+        <p class="tagline" data-t="tagline"></p>
+        <button type="button" class="link" id="lang" lang="en">English</button>
+      </div>
+    </header>
+    <main>
+      <p class="question" data-t="question"></p>
+      <p class="lead" data-t="lead"></p>
+      <div class="picker">
+        <label class="drop before" id="drop-before">
+          <span class="role" data-t="before"></span>
+          <span class="file" data-t="choose"></span>
+          <span class="hint" data-t="hint"></span>
+          <input class="sr" type="file" id="file-before" accept=".elpx,.zip" multiple />
+        </label>
+        <button type="button" class="swap" id="swap" aria-label="">⇄</button>
+        <label class="drop after" id="drop-after">
+          <span class="role" data-t="after"></span>
+          <span class="file" data-t="choose"></span>
+          <span class="hint" data-t="hint"></span>
+          <input class="sr" type="file" id="file-after" accept=".elpx,.zip" />
+        </label>
+      </div>
+      <p class="status" id="status" role="status"></p>
+      <div class="actions" id="actions" hidden>
+        <label class="toggle"><input type="checkbox" id="only-changes" /> <span data-t="onlyChanges"></span></label>
+        <button type="button" class="primary" id="save-html" data-t="saveHtml"></button>
+        <button type="button" id="save-json" data-t="saveJson"></button>
+        <button type="button" id="print" data-t="print"></button>
+      </div>
+      <div id="result" tabindex="-1"></div>
+      <noscript>Esta herramienta necesita JavaScript. / This tool needs JavaScript.</noscript>
+    </main>
+    <footer class="app-footer">
+      <div>
+        <a
+          class="ate"
+          href="https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img src="./ate-logo.png" alt="" width="40" height="41" />
+          <span data-t="madeBy"></span>
+        </a>
+        <a class="repo" href="https://github.com/ateeducacion/elpx-diff" target="_blank" rel="noopener noreferrer"
+          >github.com/ateeducacion/elpx-diff</a
+        >
+      </div>
+    </footer>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to the same branch or pull request cancels the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # Codecov upload via OIDC, no secret token
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # bun lint, bun fmt, bun check and bun build --dts are the canary tool chain.
+          bun-version: canary
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - run: bun ci
+      - run: bun run check:lockfile
+      - run: bun audit --audit-level=high
+      - run: bun run lint # bun lint + bun fmt --check: lint, formatting and import order
+      - run: bun run typecheck
+      # Fails when a file covers under 90 % of its lines or functions (bunfig.toml).
+      - run: bun run test:coverage
+      - uses: codecov/codecov-action@v7
+        with:
+          files: coverage/lcov.info
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: false
+
+      - run: bun run build
+      # The published CLI runs on Node: install the packed tarball in a clean folder and use it there.
+      - name: The npm package works on Node
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          cd "$(mktemp -d)" && npm init -y >/dev/null && npm install "$RUNNER_TEMP"/elpx-diff-*.tgz
+          npx elpx-diff --version
+          node --input-type=module -e "import { diffElpx, renderText } from 'elpx-diff'; if (typeof diffElpx !== 'function' || typeof renderText !== 'function') process.exit(1)"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: dist/web
+          retention-days: 7
