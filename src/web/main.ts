@@ -14,6 +14,8 @@ const UI = {
     hint: 'o arrástralo aquí',
     change: 'cambiar archivo',
     swap: 'Intercambiar las dos versiones',
+    themeDark: 'Cambiar a modo oscuro',
+    themeLight: 'Cambiar a modo claro',
     comparing: 'Comparando…',
     waiting: 'Elige las dos versiones para ver los cambios.',
     done: (a: number, m: number, r: number) => `Comparación lista: ${a} añadidos, ${m} modificados, ${r} eliminados.`,
@@ -35,6 +37,8 @@ const UI = {
     hint: 'or drop it here',
     change: 'change file',
     swap: 'Swap the two versions',
+    themeDark: 'Switch to dark mode',
+    themeLight: 'Switch to light mode',
     comparing: 'Comparing…',
     waiting: 'Choose both versions to see the changes.',
     done: (a: number, m: number, r: number) => `Comparison ready: ${a} added, ${m} modified, ${r} removed.`,
@@ -57,6 +61,13 @@ let lang: Lang = (localStorage.getItem('lang') ?? navigator.language).startsWith
 const files: { before?: File; after?: File } = {};
 let diff: ElpxDiff | undefined;
 let run = 0;
+
+// Light or dark: the scheme chosen with the header button, remembered in this browser, or else the system's.
+const root = document.documentElement;
+const storedTheme = localStorage.getItem('theme');
+if (storedTheme === 'light' || storedTheme === 'dark') root.dataset['theme'] = storedTheme;
+const isDark = (): boolean =>
+  (root.dataset['theme'] ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
 
 function say(text: string, error = false): void {
   status.textContent = text;
@@ -90,6 +101,8 @@ function paint(): void {
   document.body.classList.toggle('compared', !!files.before && !!files.after);
   $('swap').setAttribute('aria-label', t.swap);
   $('swap').title = t.swap;
+  $('theme').setAttribute('aria-label', isDark() ? t.themeLight : t.themeDark);
+  $('theme').title = isDark() ? t.themeLight : t.themeDark;
   const other = lang === 'es' ? 'en' : 'es';
   $('lang').textContent = t.other;
   $('lang').lang = other;
@@ -148,6 +161,12 @@ $('swap').addEventListener('click', () => {
   for (const side of ['before', 'after'] as const)
     if (!files[side]) $(`drop-${side}`).querySelector('.file')!.textContent = UI[lang].choose;
   void compare();
+});
+$('theme').addEventListener('click', () => {
+  const next = isDark() ? 'light' : 'dark';
+  root.dataset['theme'] = next;
+  localStorage.setItem('theme', next);
+  paint();
 });
 $('lang').addEventListener('click', () => {
   lang = lang === 'es' ? 'en' : 'es';

@@ -36,6 +36,7 @@ beforeAll(async () => {
   const html = readFileSync(join(import.meta.dir, '..', 'src', 'web', 'index.html'), 'utf8');
   document.body.innerHTML = /<body>([\s\S]*)<script/.exec(html)![1]!;
   localStorage.setItem('lang', 'es');
+  localStorage.setItem('theme', 'dark');
   let last: Blob;
   URL.createObjectURL = (blob: Blob): string => ((last = blob), 'blob:test');
   URL.revokeObjectURL = (): void => {};
@@ -55,6 +56,22 @@ test('starts in the stored language, waiting for the two files', () => {
   expect($('lang').textContent).toBe('English');
   expect($('lang').lang).toBe('en');
   expect($('actions').hidden).toBe(true);
+});
+
+test('the theme button switches between dark and light, labels its next state and remembers the choice', () => {
+  expect(document.documentElement.dataset['theme']).toBe('dark'); // the stored choice wins over the system's
+  expect($('theme').getAttribute('aria-label')).toBe('Cambiar a modo claro');
+  $('theme').click();
+  expect(document.documentElement.dataset['theme']).toBe('light');
+  expect(localStorage.getItem('theme')).toBe('light');
+  expect($('theme').getAttribute('aria-label')).toBe('Cambiar a modo oscuro');
+  expect($('theme').title).toBe('Cambiar a modo oscuro');
+  $('theme').click();
+  expect(document.documentElement.dataset['theme']).toBe('dark');
+  // Without a choice, the system's scheme decides (light in this DOM).
+  delete document.documentElement.dataset['theme'];
+  $('theme').click();
+  expect(document.documentElement.dataset['theme']).toBe('dark');
 });
 
 test('one file is not enough; the second one starts the comparison', async () => {

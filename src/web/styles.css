@@ -20,6 +20,13 @@
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
+/* The header button overrides the system's scheme. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
 *,
 *::before,
 *::after {
@@ -117,6 +124,18 @@ button.primary {
 }
 button.primary:hover {
   opacity: 0.85;
+}
+button.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 2.75rem;
+  padding: 0;
+  border-color: transparent;
+}
+button.icon:hover {
+  border-color: var(--ink);
 }
 button.link {
   min-height: 0;
