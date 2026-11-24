@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { chmodSync, rmSync } from 'node:fs';
+import { chmodSync, copyFileSync, rmSync } from 'node:fs';
 
 /** Builds dist/: the library (index.js + types), the CLI (cli.js, runs on Node) and the static web app (web/). */
 import { $ } from 'bun';
@@ -33,4 +33,6 @@ for (const build of builds) {
   }
 }
 chmodSync('dist/cli.js', 0o755);
+// og:image is an absolute URL the bundler does not follow: the card keeps its name next to the page.
+copyFileSync('src/web/social-card.png', 'dist/web/social-card.png');
 console.log('dist/ ready');

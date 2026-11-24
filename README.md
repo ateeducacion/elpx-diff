@@ -94,10 +94,9 @@ content into lines, `src/diff.ts` compares, `src/render.ts` and `src/report.ts` 
 
 ### Publishing
 
-A published GitHub release deploys the web app to GitHub Pages (enable Pages with source "GitHub
-Actions") and publishes to npm when the repository variable `NPM_PUBLISH` is `true`. The first
-version has to be published by hand (`bun run build && npm publish --access public`); then add
-`.github/workflows/release.yml` as the package's trusted publisher on npmjs.com.
+Every push to `main` deploys the web app to GitHub Pages (`pages.yml`). A published GitHub release
+publishes the package to npm (`release.yml`, trusted publishing, when the repository variable
+`NPM_PUBLISH` is `true`): bump `version` in `package.json` first, since the release tag must match it.
 
 ## Licence
 

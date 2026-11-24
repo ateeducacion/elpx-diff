@@ -1,0 +1,125 @@
+<!doctype html>
+<!--
+  Source of src/web/social-card.png (og:image, 1200×630). To redraw it: serve the repository root
+  (python3 -m http.server), open /scripts/social-card.html at 1200×630 and save a screenshot.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>elpx-diff social card</title>
+    <link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/latin-400.css" />
+    <link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-sans/latin-600.css" />
+    <link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-mono/latin-500.css" />
+    <link rel="stylesheet" href="../node_modules/@fontsource/ibm-plex-mono/latin-600.css" />
+    <style>
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        box-sizing: border-box;
+        padding: 56px 64px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: #fff;
+        color: #1b1f24;
+        font:
+          400 26px/1.4 'IBM Plex Sans',
+          sans-serif;
+      }
+      .brand {
+        font:
+          600 30px 'IBM Plex Mono',
+          monospace;
+      }
+      h1 {
+        margin: 18px 0 0;
+        max-width: 900px;
+        font-size: 60px;
+        line-height: 1.08;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 2px solid #1b1f24;
+        font-size: 30px;
+      }
+      li {
+        display: flex;
+      }
+      li span:first-child {
+        flex: none;
+        width: 64px;
+        padding: 12px 0;
+        text-align: center;
+        font:
+          600 30px/1.4 'IBM Plex Mono',
+          monospace;
+      }
+      li span:last-child {
+        padding: 12px 18px;
+      }
+      .del {
+        background: #ffebe9;
+      }
+      .del span:first-child {
+        color: #a40e26;
+        border-right: 2px solid #f1b8b3;
+      }
+      .del mark {
+        background: #ffc1ba;
+        text-decoration: line-through;
+      }
+      .ins {
+        background: #e6ffec;
+      }
+      .ins span:first-child {
+        color: #116329;
+        border-right: 2px solid #a6dfb4;
+      }
+      .ins mark {
+        background: #abf2bc;
+      }
+      mark {
+        padding: 2px 6px;
+        color: inherit;
+      }
+      footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 22px;
+        color: #57606a;
+      }
+      footer div {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="brand">elpx-diff</div>
+      <h1>¿Qué ha cambiado entre dos versiones de tu proyecto eXeLearning?</h1>
+    </div>
+    <ol>
+      <li class="del">
+        <span>−</span><span>¿Cuál es la capital de <mark>España</mark>?</span>
+      </li>
+      <li class="ins">
+        <span>+</span><span>¿Cuál es la capital de <mark>Canarias</mark>?</span>
+      </li>
+    </ol>
+    <footer>
+      <div>
+        <img src="../src/web/ate-logo.png" alt="" width="52" height="53" />
+        Área de Tecnología Educativa · Gobierno de Canarias
+      </div>
+      <span>En tu navegador, sin subir nada</span>
+    </footer>
+  </body>
+</html>

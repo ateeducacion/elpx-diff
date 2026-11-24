@@ -1,0 +1,46 @@
+name: Pages
+
+# The web app goes to GitHub Pages on every push to main (the github-pages
+# environment only accepts deployments from main), or by hand.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Web app on GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # bun build --dts and the rest of the tool chain need canary, as in CI.
+          bun-version: canary
+      - run: bun ci
+      - run: bun test
+      - uses: actions/configure-pages@v6
+      - run: bun run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/web
+      - id: deploy
+        uses: actions/deploy-pages@v5
