@@ -1,0 +1,14 @@
+# Coverage from CI (bun test --coverage, lcov). bunfig.toml already fails CI when a file covers under
+# 90 % of its lines or functions; Codecov adds a status on every pull request that fails when the
+# project drops under 90 % or the changed lines are under 90 % covered.
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+    patch:
+      default:
+        target: 90%
+comment:
+  layout: "condensed_header, diff, files"
+  require_changes: true

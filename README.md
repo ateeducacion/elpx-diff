@@ -1,5 +1,12 @@
 # elpx-diff
 
+[![npm](https://img.shields.io/npm/v/elpx-diff?logo=npm)](https://www.npmjs.com/package/elpx-diff)
+[![CI](https://github.com/ateeducacion/elpx-diff/actions/workflows/ci.yml/badge.svg)](https://github.com/ateeducacion/elpx-diff/actions/workflows/ci.yml)
+[![GitHub Pages](https://img.shields.io/github/deployments/ateeducacion/elpx-diff/github-pages?label=web%20app&logo=github)](https://ateeducacion.github.io/elpx-diff/)
+[![Coverage](https://codecov.io/gh/ateeducacion/elpx-diff/graph/badge.svg)](https://codecov.io/gh/ateeducacion/elpx-diff)
+
+[![elpx-diff](src/web/social-card.png)](https://ateeducacion.github.io/elpx-diff/)
+
 [Español](README.es.md)
 
 See what changed between two versions of an [eXeLearning](https://exelearning.net) project
