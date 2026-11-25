@@ -18,6 +18,31 @@ export function hunks(lines: LineDiff[], context = 2): (LineDiff | number)[] {
   return out;
 }
 
+type Side = LineDiff | number | undefined;
+
+/** Side by side: a run of removed lines faces the run of added lines after it; unchanged lines sit on both sides. */
+export function pairs(lines: (LineDiff | number)[]): [Side, Side][] {
+  const out: [Side, Side][] = [];
+  const run = (i: number, op: '-' | '+'): LineDiff[] => {
+    const taken: LineDiff[] = [];
+    for (let l = lines[i]; typeof l === 'object' && l.op === op; l = lines[++i]) taken.push(l);
+    return taken;
+  };
+  for (let i = 0; i < lines.length;) {
+    const l = lines[i]!;
+    if (typeof l === 'number' || l.op === ' ') {
+      out.push([l, l]);
+      i++;
+      continue;
+    }
+    const del = run(i, '-');
+    const ins = run(i + del.length, '+');
+    for (let k = 0; k < Math.max(del.length, ins.length); k++) out.push([del[k], ins[k]]);
+    i += del.length + ins.length;
+  }
+  return out;
+}
+
 const sizes = (r: ResourceDiff): string =>
   r.sizeBefore !== undefined && r.sizeAfter !== undefined && r.sizeBefore !== r.sizeAfter
     ? `${formatSize(r.sizeBefore)} → ${formatSize(r.sizeAfter)}`
@@ -130,7 +155,7 @@ const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeA
  * Every piece of project text goes through esc(): nothing from an .elpx is
  * ever inserted as markup.
  */
-export function renderHtml(diff: ElpxDiff, lang: Lang = 'en'): string {
+export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?: boolean } = {}): string {
   const t = strings(lang);
   const badge = (status: Status | 'renamed' | 'moved'): string => `<span class="badge ${status}">${t[status]}</span>`;
   const badges = (status: Status, moved: boolean, renamed: boolean): string =>
@@ -138,17 +163,32 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en'): string {
   const was = (old: string | undefined): string =>
     old === undefined ? '' : ` <del class="old-name">${esc(old || t.untitled)}</del>`;
 
+  const body = (l: LineDiff): string =>
+    l.words ? l.words.map((w) => (w.changed ? `<mark>${esc(w.text)}</mark>` : esc(w.text))).join('') : esc(l.text);
   const line = (l: LineDiff | number): string => {
     if (typeof l === 'number') return `<li class="skip">⋯ ${t.skipped(l)}</li>`;
     if (l.op === ' ')
       return `<li class="ctx"><span class="sign" aria-hidden="true"></span><span class="txt">${esc(l.text)}</span></li>`;
-    const [cls, tag, label, sign] =
-      l.op === '+' ? ['ins', 'ins', t.addedLine, '+'] : ['del', 'del', t.removedLine, '−'];
-    const body = l.words
-      ? l.words.map((w) => (w.changed ? `<mark>${esc(w.text)}</mark>` : esc(w.text))).join('')
-      : esc(l.text);
-    return `<li class="${cls}"><span class="sign" aria-hidden="true">${sign}</span><${tag} class="txt"><span class="sr">${label}</span>${body}</${tag}></li>`;
+    const [tag, label, sign] = l.op === '+' ? ['ins', t.addedLine, '+'] : ['del', t.removedLine, '−'];
+    return `<li class="${tag}"><span class="sign" aria-hidden="true">${sign}</span><${tag} class="txt"><span class="sr">${label}</span>${body(l)}</${tag}></li>`;
   };
+  const cell = (l: Side): string => {
+    if (l === undefined) return '<td class="empty"></td>';
+    if (typeof l === 'number' || l.op === ' ')
+      return `<td class="ctx">${typeof l === 'number' ? '' : esc(l.text)}</td>`;
+    const [tag, label] = l.op === '+' ? ['ins', t.addedLine] : ['del', t.removedLine];
+    return `<td class="${tag}"><${tag}><span class="sr">${label}</span>${body(l)}</${tag}></td>`;
+  };
+  const split = (lines: (LineDiff | number)[]): string =>
+    `<table class="split"><thead><tr><th scope="col">${t.before}</th><th scope="col">${t.after}</th></tr></thead><tbody>${pairs(
+      lines,
+    )
+      .map(([a, b]) =>
+        typeof a === 'number'
+          ? `<tr class="skip"><td colspan="2">⋯ ${t.skipped(a)}</td></tr>`
+          : `<tr>${cell(a)}${cell(b)}</tr>`,
+      )
+      .join('')}</tbody></table>`;
   /** A box's badge says what happened to the box itself; edits inside it are marked on its iDevices. */
   const own = (b: BlockDiff): boolean =>
     b.status === 'added' || b.status === 'removed' || b.moved || b.oldName !== undefined;
@@ -160,9 +200,10 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en'): string {
       return `<details class="idevice unchanged"><summary>${head}<span class="snippet">${esc(first)}</span>${badge('unchanged')}</summary><ol class="lines">${i.lines.map(line).join('')}</ol></details>`;
     }
     const lines = i.status === 'modified' ? hunks(i.lines) : i.lines;
+    const list = lines.length ? `<ol class="lines">${lines.map(line).join('')}</ol>` : '';
     return `<article class="idevice ${i.status}"><header>${head}${badges(i.status, i.moved, false)}</header>${
       i.formatOnly ? `<p class="note">${t.formatOnly}</p>` : ''
-    }${lines.length ? `<ol class="lines">${lines.map(line).join('')}</ol>` : ''}</article>`;
+    }${options.split && i.status === 'modified' ? split(lines) : list}</article>`;
   };
 
   const s = diff.summary;

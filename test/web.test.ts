@@ -146,7 +146,8 @@ test('the language button translates the page and the result, and remembers it',
   expect(stats()).toBe('+3 Added 3 Modified −2 Removed');
   expect($('status').textContent).toBe('Comparison ready: 3 added, 3 modified, 2 removed.');
   expect($('lang').textContent).toBe('Español');
-  expect($('save-html').textContent).toBe('Download report');
+  expect($('save-html').textContent).toBe('Download HTML');
+  expect($('print').textContent).toBe('Print / PDF');
   $('lang').click();
   expect(stats()).toBe('+3 Añadidos 3 Modificados −2 Eliminados');
 });
@@ -168,6 +169,22 @@ test('"only changes" marks the result so unchanged items are hidden', () => {
   box.checked = false;
   box.dispatchEvent(new Event('change'));
   expect($('result').classList.contains('only-changes')).toBe(false);
+});
+
+test('"side by side" shows edits in two columns, remembers it, and the report follows', async () => {
+  expect($('print').textContent).toBe('Imprimir / PDF');
+  expect($('save-html').textContent).toBe('Descargar HTML');
+  const box = $<HTMLInputElement>('side-by-side');
+  box.checked = true;
+  box.dispatchEvent(new Event('change'));
+  expect(localStorage.getItem('view')).toBe('split');
+  expect($('result').querySelector('table.split td.ins mark')!.textContent).toBe('Canarias');
+  $('save-html').click();
+  expect(await saved.pop()!.blob.text()).toContain('<table class="split">');
+  box.checked = false;
+  box.dispatchEvent(new Event('change'));
+  expect(localStorage.getItem('view')).toBe('inline');
+  expect($('result').querySelector('table.split')).toBeNull();
 });
 
 test('downloads: the HTML report and the JSON data; print opens every page', async () => {

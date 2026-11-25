@@ -7,7 +7,7 @@ import css from './web/styles.css' with { type: 'text' };
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** A self-contained HTML page with the comparison: no scripts, nothing fetched; to archive, print or send. */
-export function renderReport(diff: ElpxDiff, lang: Lang = 'en'): string {
+export function renderReport(diff: ElpxDiff, lang: Lang = 'en', options: { split?: boolean } = {}): string {
   const t = strings(lang);
   const [before, after] = [diff.before.name || diff.before.title, diff.after.name || diff.after.title];
   return `<!doctype html>
@@ -22,7 +22,7 @@ export function renderReport(diff: ElpxDiff, lang: Lang = 'en'): string {
 <main>
 <h1>${t.report}</h1>
 <p class="compare"><span>${esc(before)}</span> → <span>${esc(after)}</span></p>
-${renderHtml(diff, lang)}
+${renderHtml(diff, lang, options)}
 </main>
 </body>
 </html>

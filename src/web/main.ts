@@ -21,10 +21,11 @@ const UI = {
     waiting: 'Elige las dos versiones para ver los cambios.',
     done: (a: number, m: number, r: number) => `Comparación lista: ${a} añadidos, ${m} modificados, ${r} eliminados.`,
     error: 'No se ha podido comparar: ',
-    saveHtml: 'Descargar informe',
+    saveHtml: 'Descargar HTML',
     saveJson: 'JSON',
-    print: 'Imprimir',
+    print: 'Imprimir / PDF',
     onlyChanges: 'Solo lo que cambia',
+    sideBySide: 'Lado a lado',
     madeBy: 'Creado por el Área de Tecnología Educativa del Gobierno de Canarias',
     cliTitle: 'Desde la terminal',
     cliIntro:
@@ -68,10 +69,11 @@ const UI = {
     waiting: 'Choose both versions to see the changes.',
     done: (a: number, m: number, r: number) => `Comparison ready: ${a} added, ${m} modified, ${r} removed.`,
     error: 'The comparison failed: ',
-    saveHtml: 'Download report',
+    saveHtml: 'Download HTML',
     saveJson: 'JSON',
-    print: 'Print',
+    print: 'Print / PDF',
     onlyChanges: 'Only what changes',
+    sideBySide: 'Side by side',
     madeBy: 'Made by the Educational Technology Area of the Government of the Canary Islands',
     cliTitle: 'From the terminal',
     cliIntro:
@@ -107,6 +109,8 @@ const result = $('result');
 const actions = $('actions');
 
 let lang: Lang = (localStorage.getItem('lang') ?? navigator.language).startsWith('en') ? 'en' : 'es';
+const sideBySide = $<HTMLInputElement>('side-by-side');
+sideBySide.checked = localStorage.getItem('view') === 'split';
 const files: { before?: File; after?: File } = {};
 let diff: ElpxDiff | undefined;
 let run = 0;
@@ -127,7 +131,7 @@ function say(text: string, error = false): void {
 function show(): void {
   if (!diff) return;
   // renderHtml escapes every piece of project text; nothing from the files is inserted as markup.
-  result.innerHTML = `<p class="compare"><span></span> → <span></span></p>${renderHtml(diff, lang)}`;
+  result.innerHTML = `<p class="compare"><span></span> → <span></span></p>${renderHtml(diff, lang, { split: sideBySide.checked })}`;
   const [a, b] = result.querySelectorAll('.compare span');
   a!.textContent = diff.before.name;
   b!.textContent = diff.after.name;
@@ -245,13 +249,20 @@ function save(name: string, type: string, text: string): void {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-$('save-html').addEventListener('click', () => diff && save('elpx-diff.html', 'text/html', renderReport(diff, lang)));
+$('save-html').addEventListener(
+  'click',
+  () => diff && save('elpx-diff.html', 'text/html', renderReport(diff, lang, { split: sideBySide.checked })),
+);
 $('save-json').addEventListener(
   'click',
   () => diff && save('elpx-diff.json', 'application/json', JSON.stringify(diff, null, 2)),
 );
 const onlyChanges = $<HTMLInputElement>('only-changes');
 onlyChanges.addEventListener('change', () => result.classList.toggle('only-changes', onlyChanges.checked));
+sideBySide.addEventListener('change', () => {
+  localStorage.setItem('view', sideBySide.checked ? 'split' : 'inline');
+  show();
+});
 $('print').addEventListener('click', () => {
   for (const d of result.querySelectorAll('details')) d.open = true;
   window.print();

@@ -344,8 +344,10 @@ button.link {
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
-  margin-right: auto;
   cursor: pointer;
+}
+.toggle:last-of-type {
+  margin-right: auto;
 }
 .toggle input {
   width: 1.1rem;
@@ -657,10 +659,10 @@ mark {
   padding: 1px 2px;
   color: inherit;
 }
-li.ins mark {
+:is(li, td).ins mark {
   background: var(--add-mark);
 }
-li.del mark {
+:is(li, td).del mark {
   background: var(--del-mark);
   text-decoration: line-through;
 }
@@ -673,6 +675,41 @@ li.skip {
   background: var(--soft);
   color: var(--muted);
   font: 0.8125rem var(--mono);
+}
+
+/* Side by side: the old text on the left, the new on the right */
+table.split {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 1rem;
+}
+.split thead th {
+  padding: 0.3rem 0.75rem;
+  font: 500 0.8125rem var(--mono);
+  color: var(--muted);
+}
+.split td {
+  width: 50%;
+  border-bottom: 0;
+}
+.split td + td {
+  border-left: 1px solid var(--rule);
+}
+td.ins {
+  background: var(--add-bg);
+}
+td.del {
+  background: var(--del-bg);
+}
+td.ctx {
+  color: var(--muted);
+}
+.split tr.skip td {
+  padding: 0.2rem 0.75rem;
+  background: var(--soft);
+  color: var(--muted);
+  font: 0.8125rem var(--mono);
+  text-align: center;
 }
 
 .scroll {
@@ -841,6 +878,20 @@ td:has(ins) {
   }
   .path {
     flex-basis: 100%;
+  }
+  /* Too narrow for two columns: one under the other, like the in-line view */
+  .split thead,
+  .split td.empty,
+  .split td.ctx + td.ctx {
+    display: none;
+  }
+  .split tr,
+  .split td {
+    display: block;
+    width: auto;
+  }
+  .split td + td {
+    border-left: 0;
   }
 }
 @media print {

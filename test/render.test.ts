@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { diffElpx, type LineDiff } from '../src/diff.js';
 import { formatSize, strings } from '../src/i18n.js';
 import { loadProject } from '../src/model.js';
-import { hunks, projectToText, renderHtml, renderText } from '../src/render.js';
+import { hunks, pairs, projectToText, renderHtml, renderText } from '../src/render.js';
 import { renderReport } from '../src/report.js';
 import { elpx, type P, single, v1, v2 } from './helpers.js';
 
@@ -32,6 +32,46 @@ test('hunks keep context around changes and count what they skip', () => {
   expect(hunks(lines).map((h) => (typeof h === 'number' ? h : h.text))).toEqual([3, 'd', 'e', 'X', 'f', 'g', 3]);
   expect(hunks([line(' ', 'a')])).toEqual([1]);
   expect(hunks([])).toEqual([]);
+});
+
+test('pairs: removed runs face the added runs after them; context and skips sit on both sides', () => {
+  const line = (op: LineDiff['op'], text: string): LineDiff => ({ op, text });
+  const show = (s: LineDiff | number | undefined): string =>
+    s === undefined ? '_' : typeof s === 'number' ? `${s}` : s.text;
+  const lines = [
+    3,
+    line(' ', 'a'),
+    line('-', 'b'),
+    line('-', 'c'),
+    line('+', 'B'),
+    line('+', 'x'),
+    line('+', 'y'),
+    line('-', 'z'),
+  ];
+  expect(pairs(lines).map(([l, r]) => `${show(l)}|${show(r)}`)).toEqual(['3|3', 'a|a', 'b|B', 'c|x', '_|y', 'z|_']);
+  expect(pairs([])).toEqual([]);
+});
+
+test('HTML side by side: modified iDevices in two columns, the rest as before', async () => {
+  const html = renderHtml(await changes(), 'es', { split: true });
+  expect(html).toContain(
+    '<table class="split"><thead><tr><th scope="col">Antes</th><th scope="col">Después</th></tr></thead>',
+  );
+  expect(html).toContain(
+    '<tr><td class="del"><del><span class="sr">Eliminado: </span>¿Cuál es la capital de <mark>España</mark>?</del></td><td class="ins"><ins><span class="sr">Añadido: </span>¿Cuál es la capital de <mark>Canarias</mark>?</ins></td></tr>',
+  );
+  expect(html).toContain('<tr><td class="ctx">Elige una.</td><td class="ctx">Elige una.</td></tr>');
+  expect(html).toContain('<article class="idevice removed"><header><code class="type">'); // whole iDevices stay in one column
+  expect(html).not.toContain(
+    '<li class="del"><span class="sign" aria-hidden="true">−</span><del class="txt"><span class="sr">Eliminado: </span>¿Cuál',
+  );
+  const skipped = renderHtml(await diffElpx(single(long('uno')), single(long('dos'))), 'en', { split: true });
+  expect(skipped).toContain('<tr class="skip"><td colspan="2">⋯ 3 unchanged lines</td></tr>');
+  const uneven = renderHtml(await diffElpx(single(long('uno')), single(long('dos</p><p>tres'))), 'en', { split: true });
+  expect(uneven).toContain(
+    '<tr><td class="empty"></td><td class="ins"><ins><span class="sr">Added: </span>tres</ins></td></tr>',
+  );
+  expect(renderReport(await changes(), 'es', { split: true })).toContain('<table class="split">');
 });
 
 test('terminal report: only what changed, in the language asked', async () => {
