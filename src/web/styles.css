@@ -815,7 +815,8 @@ td:has(ins) {
 .only-changes .idevice.unchanged,
 .only-changes .tree .unchanged,
 .only-changes .lines .ctx,
-.only-changes .lines .skip {
+.only-changes .lines .skip,
+.only-changes .split tbody tr:not(:has(.ins, .del)) {
   display: none;
 }
 
