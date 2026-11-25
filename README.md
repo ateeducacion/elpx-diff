@@ -29,12 +29,35 @@ wrote, not the generated HTML. It reports:
 Pages and iDevices are matched by id, and by title and content when a tool regenerated the ids.
 Fields that change on every save (`pp_modified`, the embedded screenshot) are ignored.
 
+Each page of the report says how many of its iDevices were added, modified and removed.
+
+### Marked pages
+
+To review the changes as readers will see them, each page of the comparison in the web app has a
+**View with its design** link: it shows the page of the new version, as eXeLearning exported it inside
+the `.elpx`, with the changes marked in place. Added iDevices have a green background; modified ones
+an amber bar, their new paragraphs in green and their edited ones in amber, and, right above them,
+what changed in them, the removed words struck through and the new ones highlighted. A bar in a
+corner, always in sight, sums up the page's changes and switches between three ways of seeing the
+page, landing on the same iDevice: the **old version** as it was exported then, the **changes**
+(the default, with all the marks) and the **new version**, both as readers see them. A box at the
+top gives what does not fit there, such as the text of what was removed. A page the new version
+removed shows its changes on its old version. The viewer fills the window, and can go full screen. The
+page works as it does for readers (its menu, "show more" buttons, tabs…), and its links to other
+pages open them there.
+
+Its scripts run cut off from the app (see [Safety](#safety)): whatever they would fetch from the
+internet, such as an embedded video, does not show. The CLI gives the whole marked website as a ZIP
+(`--marked`), with `elpx-diff.html`, a summary page that lists every page with changes, the most
+changed first; there, the bar turns the marks off and on.
+
 ## CLI
 
 ```sh
 elpx-diff old.elpx new.elpx                    # coloured report in the terminal
 elpx-diff old.elpx new.elpx --json             # one JSON document
 elpx-diff old.elpx new.elpx --html -o diff.html  # self-contained report, no scripts
+elpx-diff old.elpx new.elpx --marked marked.zip  # also the marked website, as a ZIP
 elpx-diff textconv project.elpx                # one project as plain text
 ```
 
@@ -54,9 +77,12 @@ on one file: `GIT_EXTERNAL_DIFF=elpx-diff git diff -- project.elpx`.
 ## Library
 
 ```ts
-import { diffElpx, renderHtml, renderReport, renderText } from 'elpx-diff';
+import { diffElpx, markProject, renderHtml, renderReport, renderText } from 'elpx-diff';
 
 const diff = await diffElpx(oldFile, newFile); // File, Blob or Uint8Array
+const marked = await markProject(oldFile, newFile, { lang: 'en' }); // marked.diff is the comparison
+await marked.page(marked.diff.pages[0]); // one page, marked and self-contained (no scripts)
+await marked.site(); // the whole marked website, ZIP bytes
 diff.summary; // { added, modified, removed }
 renderText(diff, { lang: 'en', color: true }); // terminal
 renderHtml(diff, 'en'); // HTML fragment (project text is always escaped)
@@ -64,13 +90,22 @@ renderReport(diff, 'en'); // whole HTML page
 ```
 
 Runs in browsers, Node 22.18+ and Bun. Files are read with ranged reads: only `content.xml` is
-inflated, so projects with large videos compare quickly.
+inflated, so projects with large videos compare quickly. A marked page reads only its own files, and
+only when it is asked for.
 
 ## Safety
 
-Everything inside an `.elpx` is treated as untrusted data. Project HTML is read as text and never
-rendered, project scripts never run, and the web app has a Content-Security-Policy that allows
-no connection to other origins.
+Everything inside an `.elpx` is treated as untrusted data. The comparison reads project HTML as
+text, and the report escapes every piece of it. The web app has a Content-Security-Policy that
+allows no connection to other origins.
+
+The one place where a project's page is rendered, and its scripts run, is the viewer of marked
+pages: `viewer.html`, in a frame sandboxed with `allow-scripts` but without `allow-same-origin`. The
+page gets an origin of its own, so it cannot reach the app, nor what other pages of the same site
+keep in the browser; and `viewer.html`'s own policy gives it no network at all, so it cannot send
+anything anywhere. Everything it needs comes inlined in the one message the app posts to it. Its
+links to other pages come back to the app as messages, which the app follows only to pages of the
+same project; links out open in a new tab.
 
 ## Limits
 

@@ -35,4 +35,6 @@ for (const build of builds) {
 chmodSync('dist/cli.js', 0o755);
 // og:image is an absolute URL the bundler does not follow: the card keeps its name next to the page.
 copyFileSync('src/web/social-card.png', 'dist/web/social-card.png');
+// The viewer's frame is a page of its own, with its own policy, loaded by URL: it is copied as it is.
+copyFileSync('src/web/viewer.html', 'dist/web/viewer.html');
 console.log('dist/ ready');

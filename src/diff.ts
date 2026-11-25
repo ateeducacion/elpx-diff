@@ -1,5 +1,6 @@
 import { diffArrays, diffWordsWithSpace } from 'diff';
 
+import type { Tally } from './i18n.js';
 import { type Block, type Idevice, loadProject, type Page, type Project } from './model.js';
 
 export type Status = 'added' | 'removed' | 'modified' | 'unchanged';
@@ -61,6 +62,14 @@ export interface ElpxDiff {
   metadata: MetaDiff[];
   pages: PageDiff[];
   resources: ResourceDiff[];
+}
+
+/** How many iDevices of a page were added, modified and removed (those of a removed box count as removed). */
+export function pageTally(page: PageDiff): Tally {
+  const tally = { added: 0, modified: 0, removed: 0 };
+  for (const block of page.blocks)
+    for (const idevice of block.idevices) if (idevice.status !== 'unchanged') tally[idevice.status]++;
+  return tally;
 }
 
 function diffLines(a: string[], b: string[]): LineDiff[] {

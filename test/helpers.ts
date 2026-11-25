@@ -112,3 +112,32 @@ export const v2 = (): Uint8Array =>
     { 'content/resources/intro.mp4': 'MP4', 'content/resources/manual.pdf': 'PDF' },
     { pp_title: 'Recurso', pp_author: 'ATE' },
   );
+
+/** The web export eXeLearning 4 saves inside an .elpx: index.html for the first page, html/<name>.html for the rest. */
+export function exportedSite(pages: P[]): Record<string, string> {
+  return Object.fromEntries(
+    pages.map((p, n) => [
+      n === 0 ? 'index.html' : `html/${p.id}.html`,
+      `<!doctype html><html><head><title>${p.title}</title></head><body><main id="${p.id}" class="page"><header class="main-header"><h1 class="page-title">${p.title}</h1></header><div id="page-content-${p.id}" class="page-content">${(
+        p.blocks ?? []
+      )
+        .map(
+          (b) =>
+            `<article id="${b.id}" class="box"><div class="box-content">${b.idevices
+              .map(
+                (i) =>
+                  `<div id="${i.id}" class="idevice_node ${i.type ?? 'text'}" data-idevice-type="text">${i.html ?? ''}</div>`,
+              )
+              .join('')}</div></article>`,
+        )
+        .join('')}</div></main></body></html>`,
+    ]),
+  );
+}
+
+/** An .elpx with its web export, as eXeLearning 4 saves it. */
+export const elpxWithSite = (
+  pages: P[],
+  files: Record<string, string> = {},
+  meta?: Record<string, string>,
+): Uint8Array => elpx(pages, { ...exportedSite(pages), ...files }, meta);

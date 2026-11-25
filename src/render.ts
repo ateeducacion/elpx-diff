@@ -1,4 +1,13 @@
-import type { BlockDiff, ElpxDiff, IdeviceDiff, LineDiff, ResourceDiff, Status } from './diff.js';
+import {
+  type BlockDiff,
+  type ElpxDiff,
+  type IdeviceDiff,
+  type LineDiff,
+  type PageDiff,
+  pageTally,
+  type ResourceDiff,
+  type Status,
+} from './diff.js';
 import { formatSize, type Lang, strings } from './i18n.js';
 import { ideviceName } from './idevices.js';
 import type { Project } from './model.js';
@@ -157,6 +166,20 @@ export function projectToText(project: Project): string {
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** A line's text, its changed words in <mark>. */
+const body = (l: LineDiff): string =>
+  l.words ? l.words.map((w) => (w.changed ? `<mark>${esc(w.text)}</mark>` : esc(w.text))).join('') : esc(l.text);
+
+/** One line of an iDevice's diff as a list item (the report and the marked website share it). */
+export function lineHtml(l: LineDiff | number, lang: Lang): string {
+  const t = strings(lang);
+  if (typeof l === 'number') return `<li class="skip">⋯ ${t.skipped(l)}</li>`;
+  if (l.op === ' ')
+    return `<li class="ctx"><span class="sign" aria-hidden="true"></span><span class="txt">${esc(l.text)}</span></li>`;
+  const [tag, label, sign] = l.op === '+' ? ['ins', t.addedLine, '+'] : ['del', t.removedLine, '−'];
+  return `<li class="${tag}"><span class="sign" aria-hidden="true">${sign}</span><${tag} class="txt"><span class="sr">${label}</span>${body(l)}</${tag}></li>`;
+}
+
 /**
  * The comparison as an HTML fragment (the web app and the report share it).
  * Every piece of project text goes through esc(): nothing from an .elpx is
@@ -170,15 +193,7 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?:
   const was = (old: string | undefined): string =>
     old === undefined ? '' : ` <del class="old-name">${esc(old || t.untitled)}</del>`;
 
-  const body = (l: LineDiff): string =>
-    l.words ? l.words.map((w) => (w.changed ? `<mark>${esc(w.text)}</mark>` : esc(w.text))).join('') : esc(l.text);
-  const line = (l: LineDiff | number): string => {
-    if (typeof l === 'number') return `<li class="skip">⋯ ${t.skipped(l)}</li>`;
-    if (l.op === ' ')
-      return `<li class="ctx"><span class="sign" aria-hidden="true"></span><span class="txt">${esc(l.text)}</span></li>`;
-    const [tag, label, sign] = l.op === '+' ? ['ins', t.addedLine, '+'] : ['del', t.removedLine, '−'];
-    return `<li class="${tag}"><span class="sign" aria-hidden="true">${sign}</span><${tag} class="txt"><span class="sr">${label}</span>${body(l)}</${tag}></li>`;
-  };
+  const line = (l: LineDiff | number): string => lineHtml(l, lang);
   const cell = (l: Side): string => {
     if (l === undefined) return '<td class="empty"></td>';
     if (typeof l === 'number' || l.op === ' ')
@@ -213,6 +228,12 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?:
     }${options.split && i.status === 'modified' ? split(lines) : list}</article>`;
   };
 
+  /** Under a page's title, how many of its iDevices changed: the page's own summary, visible even when folded. */
+  const counts = (p: PageDiff): string => {
+    const tally = pageTally(p);
+    return tally.added + tally.modified + tally.removed ? `<span class="counts">${t.tally(tally)}</span>` : '';
+  };
+
   const s = diff.summary;
   const html = `<section class="summary" aria-label="${t.summary}"><ul class="stats">
 <li class="stat added"><b>+${s.added}</b> ${t.addedMany}</li>
@@ -224,7 +245,7 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?:
   const pages = `<section><h2>${t.pages}</h2>${diff.pages
     .map(
       (p, n) =>
-        `<details id="page-${n}" class="page ${p.status} depth-${Math.min(p.depth, 4)}"${p.status === 'unchanged' ? '' : ' open'}><summary><h3>${esc(p.title || t.untitled)}${was(p.oldTitle)}</h3>${badges(p.status, p.moved, p.oldTitle !== undefined)}</summary>${p.blocks
+        `<details id="page-${n}" class="page ${p.status} depth-${Math.min(p.depth, 4)}"${p.status === 'unchanged' ? '' : ' open'}><summary><h3>${esc(p.title || t.untitled)}${was(p.oldTitle)}</h3>${badges(p.status, p.moved, p.oldTitle !== undefined)}${counts(p)}</summary>${p.blocks
           .map(
             (b) =>
               `<div class="block ${b.status}">${

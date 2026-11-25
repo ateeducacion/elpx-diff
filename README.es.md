@@ -30,12 +30,36 @@ el HTML generado. Informa de:
 Las páginas y los iDevices se emparejan por su identificador, y por título y contenido cuando una
 herramienta ha regenerado los identificadores.
 
+Cada página del informe indica cuántos de sus iDevices se han añadido, modificado y eliminado.
+
+### Páginas marcadas
+
+Para revisar los cambios tal como los verá el lector, cada página de la comparación en la aplicación
+web tiene un enlace **Ver con su diseño**: muestra la página de la versión nueva, tal como eXeLearning la
+exportó dentro del `.elpx`, con los cambios marcados en su sitio. Los iDevices añadidos llevan fondo
+verde; los modificados, una franja ámbar, sus párrafos nuevos en verde y los retocados en ámbar, y,
+justo encima, lo que ha cambiado en ellos, con las palabras quitadas tachadas y las nuevas
+resaltadas. Un cartel en una esquina, siempre a la vista, resume los cambios de la página y alterna
+entre tres formas de verla, en el mismo iDevice: la **versión anterior**, tal como se exportó
+entonces; los **cambios**, con todas las marcas, que es como se abre, y la **versión nueva**; las
+dos versiones, tal como las ve el lector. Arriba, un recuadro da lo que no cabe en el cartel, como
+el texto de lo eliminado. Una página que la versión nueva eliminó muestra sus cambios sobre su
+versión anterior. La ventana ocupa toda la pantalla
+del navegador y puede pasar a pantalla completa. La página funciona como para el lector (su menú,
+los botones de «saber más», las pestañas…), y sus enlaces a otras páginas las abren allí mismo.
+
+Su código funciona aislado de la aplicación y sin conexión: lo que tendría que descargar de
+internet, como un vídeo incrustado, no aparece. La línea de órdenes da la web marcada entera en un
+ZIP (`--marked`), con `elpx-diff.html`, una página de resumen con todas las páginas que cambian, de
+más a menos cambios; allí, el cartel quita y pone las marcas.
+
 ## Línea de órdenes
 
 ```sh
 elpx-diff anterior.elpx nueva.elpx                       # informe en color en la terminal
 elpx-diff anterior.elpx nueva.elpx --json                # un documento JSON
 elpx-diff anterior.elpx nueva.elpx --html -o cambios.html  # informe HTML autónomo, sin scripts
+elpx-diff anterior.elpx nueva.elpx --marked marcada.zip    # además, la web marcada en un ZIP
 elpx-diff textconv proyecto.elpx                         # un proyecto como texto plano
 ```
 

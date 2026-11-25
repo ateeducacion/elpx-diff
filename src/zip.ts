@@ -10,7 +10,7 @@ export interface ZipEntry {
   read(): Promise<Uint8Array>;
 }
 
-// Only content.xml is ever inflated; this bounds a zip bomb.
+// Entries are inflated one by one, on read (content.xml, or every file for the marked copy); this bounds a zip bomb.
 const MAX_INFLATED = 256 * 1024 * 1024;
 
 const bytes = async (blob: Blob, offset: number, length: number): Promise<Uint8Array> =>
