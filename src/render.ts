@@ -1,5 +1,6 @@
 import type { BlockDiff, ElpxDiff, IdeviceDiff, LineDiff, ResourceDiff, Status } from './diff.js';
 import { formatSize, type Lang, strings } from './i18n.js';
+import { ideviceName } from './idevices.js';
 import type { Project } from './model.js';
 
 /** Changed lines with `context` unchanged lines around them; longer unchanged runs become a count. */
@@ -108,7 +109,9 @@ export function renderText(diff: ElpxDiff, options: { lang?: Lang; color?: boole
         const flags = [idevice.moved ? t.moved.toLowerCase() : '', idevice.formatOnly ? t.formatOnly : ''].filter(
           Boolean,
         );
-        out.push(`${pad}  ${mark(idevice.status, idevice.type + (flags.length ? ` (${flags.join(', ')})` : ''))}`);
+        out.push(
+          `${pad}  ${mark(idevice.status, ideviceName(idevice.type, options.lang ?? 'en') + (flags.length ? ` (${flags.join(', ')})` : ''))}`,
+        );
         for (const line of hunks(idevice.lines)) {
           if (typeof line === 'number') out.push(`${pad}      ${paint('2', `… ${t.skipped(line)}`)}`);
           else if (line.op === ' ') out.push(`${pad}      ${line.text}`);
@@ -197,7 +200,7 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?:
   const own = (b: BlockDiff): boolean =>
     b.status === 'added' || b.status === 'removed' || b.moved || b.oldName !== undefined;
   const idevice = (i: IdeviceDiff): string => {
-    const head = `<code class="type">${esc(i.type)}</code>`;
+    const head = `<span class="type" title="${esc(i.type)}">${esc(ideviceName(i.type, lang))}</span>`;
     if (i.status === 'unchanged') {
       const text = i.lines[0]?.text ?? t.empty;
       const first = text.length > 90 ? `${text.slice(0, 90)}…` : text;

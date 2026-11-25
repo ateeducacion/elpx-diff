@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 
 import { diffElpx, type LineDiff } from '../src/diff.js';
 import { formatSize, strings } from '../src/i18n.js';
+import { ideviceName } from '../src/idevices.js';
 import { loadProject } from '../src/model.js';
 import { hunks, pairs, projectToText, renderHtml, renderText } from '../src/render.js';
 import { renderReport } from '../src/report.js';
@@ -10,6 +11,13 @@ import { elpx, type P, single, v1, v2 } from './helpers.js';
 const changes = (): ReturnType<typeof diffElpx> => diffElpx(v1(), v2(), { before: 'v1.elpx', after: 'v2.elpx' });
 const long = (middle: string): string =>
   `<p>${['a', 'b', 'c', 'd', 'e', middle, 'f', 'g', 'h', 'i', 'j'].join('</p><p>')}</p>`;
+
+test('iDevices by the name eXeLearning gives them; unknown types keep their identifier', () => {
+  expect(ideviceName('az-quiz-game', 'es')).toBe('Rosco');
+  expect(ideviceName('az-quiz-game', 'en')).toBe('A-Z quiz');
+  expect(ideviceName('trueorfalse', 'es')).toBe('Verdadero o falso');
+  expect(ideviceName('FreeTextIdevice', 'es')).toBe('FreeTextIdevice');
+});
 
 test('strings and sizes in both languages', () => {
   expect(strings('es').skipped(3)).toBe('3 líneas sin cambios');
@@ -61,7 +69,7 @@ test('HTML side by side: modified iDevices in two columns, the rest as before', 
     '<tr><td class="del"><del><span class="sr">Eliminado: </span>¿Cuál es la capital de <mark>España</mark>?</del></td><td class="ins"><ins><span class="sr">Añadido: </span>¿Cuál es la capital de <mark>Canarias</mark>?</ins></td></tr>',
   );
   expect(html).toContain('<tr><td class="ctx">Elige una.</td><td class="ctx">Elige una.</td></tr>');
-  expect(html).toContain('<article class="idevice removed"><header><code class="type">'); // whole iDevices stay in one column
+  expect(html).toContain('<article class="idevice removed"><header><span class="type"'); // whole iDevices stay in one column
   expect(html).not.toContain(
     '<li class="del"><span class="sign" aria-hidden="true">−</span><del class="txt"><span class="sr">Eliminado: </span>¿Cuál',
   );
@@ -132,7 +140,7 @@ test('terminal report: moved and renamed pages and boxes, format changes, change
   expect(text).toContain('~ (untitled)\n');
   expect(text).toContain('~ Uno (moved)');
   expect(text).toContain('~ [Después] (was "Antes")');
-  expect(text).toContain('~ text (Same text; formatting or settings changed.)');
+  expect(text).toContain('~ Text (Same text; formatting or settings changed.)');
   expect(text).toContain('~ content/resources/f.txt (1 B → 3 B)');
 });
 
@@ -190,7 +198,7 @@ test('HTML: summary, sections, badges and the diff lines', async () => {
     '<li class="ctx"><span class="sign" aria-hidden="true"></span><span class="txt">Elige una.</span></li>',
   );
   expect(html).toContain(
-    '<details class="idevice unchanged"><summary><code class="type">text</code><span class="snippet">Texto introductorio</span>',
+    '<details class="idevice unchanged"><summary><span class="type" title="text">Texto</span><span class="snippet">Texto introductorio</span>',
   );
   expect(html).toContain('<article class="idevice removed">');
   expect(html).toContain(

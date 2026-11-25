@@ -600,8 +600,8 @@ ins {
   font-weight: 600;
 }
 .type {
-  font: 0.8125rem var(--mono);
-  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
 /* An edited iDevice: one ruled block, a gutter of signs, green and red lines */
