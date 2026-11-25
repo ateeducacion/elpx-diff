@@ -43,6 +43,10 @@ export function pairs(lines: (LineDiff | number)[]): [Side, Side][] {
   return out;
 }
 
+/** The usual "side panel" icon: a window with its left column marked. */
+const PANEL =
+  '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.75" y="3.75" width="14.5" height="12.5" rx="1.5"/><path d="M7.75 3.75v12.5"/></svg>';
+
 const sizes = (r: ResourceDiff): string =>
   r.sizeBefore !== undefined && r.sizeAfter !== undefined && r.sizeBefore !== r.sizeAfter
     ? `${formatSize(r.sizeBefore)} → ${formatSize(r.sizeAfter)}`
@@ -254,12 +258,12 @@ export function renderHtml(diff: ElpxDiff, lang: Lang = 'en', options: { split?:
     metadata ? `<li><a href="#metadata">${t.metadata} (${diff.metadata.length})</a></li>` : '',
     resources ? `<li><a href="#resources">${t.resources} (${diff.resources.length})</a></li>` : '',
   ].join('');
-  const toc = `<nav class="toc" aria-label="${t.index}"><p class="label">${t.pages}</p><ul class="tree">${diff.pages
+  const toc = `<nav class="toc" aria-label="${t.index}"><details open><summary title="${t.index}">${PANEL}<span class="sr">${t.index}</span></summary><p class="label">${t.pages}</p><ul class="tree">${diff.pages
     .map(
       (p, n) =>
         `<li class="${p.status} depth-${Math.min(p.depth, 4)}"><a href="#page-${n}"><span class="sign" aria-hidden="true">${SIGNS[p.status]}</span><span><span class="sr">${t[p.status]}: </span>${esc(p.title || t.untitled)}</span></a></li>`,
     )
-    .join('')}</ul>${also ? `<p class="label">${t.also}</p><ul>${also}</ul>` : ''}</nav>`;
+    .join('')}</ul>${also ? `<p class="label">${t.also}</p><ul>${also}</ul>` : ''}</details></nav>`;
 
   return `${html}<div class="layout">${toc}<div class="doc">${pages}${metadata}${resources}</div></div>`;
 }

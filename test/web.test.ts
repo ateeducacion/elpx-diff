@@ -171,8 +171,25 @@ test('"only changes" marks the result so unchanged items are hidden', () => {
   expect($('result').classList.contains('only-changes')).toBe(false);
 });
 
+test('the index folds away and stays folded across re-renders', () => {
+  const toc = (): HTMLDetailsElement => $('result').querySelector<HTMLDetailsElement>('.toc details')!;
+  expect(toc().open).toBe(true);
+  toc().open = false;
+  toc().dispatchEvent(new Event('toggle'));
+  expect(localStorage.getItem('toc')).toBe('closed');
+  $('lang').click();
+  $('lang').click();
+  expect(toc().open).toBe(false);
+  toc().open = true;
+  toc().dispatchEvent(new Event('toggle'));
+  expect(localStorage.getItem('toc')).toBe('open');
+  $('result').querySelector('details.page')!.dispatchEvent(new Event('toggle')); // other folds are not the index
+  expect(localStorage.getItem('toc')).toBe('open');
+});
+
 test('"side by side" shows edits in two columns, remembers it, and the report follows', async () => {
   expect($('print').textContent).toBe('Imprimir / PDF');
+  expect(document.querySelector('[data-t="sideBySide"]')!.textContent).toBe('Dos columnas');
   expect($('save-html').textContent).toBe('Descargar HTML');
   const box = $<HTMLInputElement>('side-by-side');
   box.checked = true;

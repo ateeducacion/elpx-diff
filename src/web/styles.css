@@ -423,6 +423,26 @@ button.link {
 .toc .label {
   margin: 0 0 0.4rem;
 }
+.toc summary {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.6rem 0 0.4rem -0.75rem;
+  list-style: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toc summary::-webkit-details-marker {
+  display: none;
+}
+.toc summary:hover {
+  color: var(--ink);
+}
+/* Folded, the index shrinks to its title and the comparison takes the width */
+.toc:not(:has(> details[open])) {
+  flex: 0 0 auto;
+}
 .toc a {
   display: flex;
   gap: 0.5rem;

@@ -25,7 +25,7 @@ const UI = {
     saveJson: 'JSON',
     print: 'Imprimir / PDF',
     onlyChanges: 'Solo lo que cambia',
-    sideBySide: 'Lado a lado',
+    sideBySide: 'Dos columnas',
     madeBy: 'Creado por el Área de Tecnología Educativa del Gobierno de Canarias',
     cliTitle: 'Desde la terminal',
     cliIntro:
@@ -132,6 +132,7 @@ function show(): void {
   if (!diff) return;
   // renderHtml escapes every piece of project text; nothing from the files is inserted as markup.
   result.innerHTML = `<p class="compare"><span></span> → <span></span></p>${renderHtml(diff, lang, { split: sideBySide.checked })}`;
+  if (localStorage.getItem('toc') === 'closed') result.querySelector<HTMLDetailsElement>('.toc details')!.open = false;
   const [a, b] = result.querySelectorAll('.compare span');
   a!.textContent = diff.before.name;
   b!.textContent = diff.after.name;
@@ -263,6 +264,15 @@ sideBySide.addEventListener('change', () => {
   localStorage.setItem('view', sideBySide.checked ? 'split' : 'inline');
   show();
 });
+// The index folds away to give the comparison the whole width; the choice is remembered.
+result.addEventListener(
+  'toggle',
+  (event) => {
+    const details = event.target as HTMLDetailsElement;
+    if (details.parentElement?.classList.contains('toc')) localStorage.setItem('toc', details.open ? 'open' : 'closed');
+  },
+  true,
+);
 $('print').addEventListener('click', () => {
   for (const d of result.querySelectorAll('details')) d.open = true;
   window.print();

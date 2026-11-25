@@ -202,10 +202,13 @@ test('HTML: summary, sections, badges and the diff lines', async () => {
   expect(html).not.toContain('class="identical"');
   // The index: every page with its sign, and links to the other sections that changed.
   expect(html).toContain(
-    '<nav class="toc" aria-label="Índice de cambios"><p class="label">Páginas</p><ul class="tree"><li class="modified depth-0"><a href="#page-0"><span class="sign" aria-hidden="true">~</span><span><span class="sr">Modificado: </span>Unidad 1 — Introducción</span></a></li>',
+    '<nav class="toc" aria-label="Índice de cambios"><details open><summary title="Índice de cambios"><svg aria-hidden="true"',
   );
   expect(html).toContain(
-    '<p class="label">También cambia</p><ul><li><a href="#metadata">Metadatos (1)</a></li><li><a href="#resources">Archivos (3)</a></li></ul></nav>',
+    '</svg><span class="sr">Índice de cambios</span></summary><p class="label">Páginas</p><ul class="tree"><li class="modified depth-0"><a href="#page-0"><span class="sign" aria-hidden="true">~</span><span><span class="sr">Modificado: </span>Unidad 1 — Introducción</span></a></li>',
+  );
+  expect(html).toContain(
+    '<p class="label">También cambia</p><ul><li><a href="#metadata">Metadatos (1)</a></li><li><a href="#resources">Archivos (3)</a></li></ul></details></nav>',
   );
   expect(html.indexOf('id="page-0"')).toBeLessThan(html.indexOf('id="metadata"'));
   expect(renderHtml(await changes())).toContain('<h2>Pages</h2>');
