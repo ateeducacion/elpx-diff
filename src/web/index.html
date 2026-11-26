@@ -118,10 +118,14 @@
           </div>
           <button type="button" id="viewer-full"></button>
         </header>
+        <!-- Where a link of the page leads out of it: shown here, for the reader to open or download. -->
+        <p class="viewer-link" id="viewer-link" hidden>
+          <span id="viewer-link-label"></span> <a id="viewer-link-go" rel="noopener noreferrer"></a>
+        </p>
         <iframe id="viewer-frame" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe>
         <p class="viewer-note" data-t="viewNote"></p>
       </section>
-      <!-- Two versions of eXeLearning's manual, served by this site (scripts/build.ts), to see the tool at work. -->
+      <!-- Two versions of a small resource, served by this site (scripts/examples.ts), to see the tool at work. -->
       <p class="example"><button type="button" class="link" id="example" data-t="example"></button></p>
       <noscript>Esta herramienta necesita JavaScript. / This tool needs JavaScript.</noscript>
     </main>

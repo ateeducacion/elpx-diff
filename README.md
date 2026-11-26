@@ -104,9 +104,13 @@ The one place where a project's page is rendered, and its scripts run, is the vi
 pages: `viewer.html`, in a frame sandboxed with `allow-scripts` but without `allow-same-origin`. The
 page gets an origin of its own, so it cannot reach the app, nor what other pages of the same site
 keep in the browser; and `viewer.html`'s own policy gives it no network at all, so it cannot send
-anything anywhere. Everything it needs comes inlined in the one message the app posts to it. Its
-links to other pages come back to the app as messages, which the app follows only to pages of the
-same project; links out do not open, since a pop-up could carry the project's text away.
+anything anywhere. What it needs comes inlined in the one message the app posts to it; the files its
+scripts ask for once it runs (a picture an iDevice puts in, a sound, a template) it asks the app for,
+which gives it only files of that same package. Its links to other pages come back to the app as
+messages, which the app follows only to pages of the same project. A link out is never opened for
+the page, since a pop-up could carry the project's text away: the app shows where it leads, above the
+page, for the reader to open. A link to another file of the package (a PDF) is offered the same way,
+to download. The frame shows no dialogs: what a script says with `alert()` appears on the page.
 
 ## Limits
 

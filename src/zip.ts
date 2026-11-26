@@ -7,10 +7,13 @@ export interface ZipEntry {
   readonly name: string;
   readonly size: number;
   readonly crc: number;
-  read(): Promise<Uint8Array>;
+  /** Its bytes, inflated; refused when they are more than `max` (256 MiB unless told otherwise). */
+  read(max?: number): Promise<Uint8Array>;
 }
 
-// Entries are inflated one by one, on read (content.xml, or every file for the marked copy); this bounds a zip bomb.
+// Entries are inflated one by one, on read (content.xml, or every file for the marked copy); this bounds a zip
+// bomb. The marked copy, which bounds the whole package instead, asks for more.
+// The size is the one the directory declares, and nothing is inflated past it.
 const MAX_INFLATED = 256 * 1024 * 1024;
 
 const bytes = async (blob: Blob, offset: number, length: number): Promise<Uint8Array> =>
@@ -55,9 +58,9 @@ export async function readZip(blob: Blob): Promise<Map<string, ZipEntry>> {
       name,
       size,
       crc,
-      async read() {
+      async read(max = MAX_INFLATED) {
         if (flags & 1) throw new ElpxError(`${name} is encrypted`);
-        if (size > MAX_INFLATED) throw new ElpxError(`${name} is too large`);
+        if (size > max) throw new ElpxError(`${name} is too large`);
         const lv = view(await bytes(blob, local, 30));
         if (lv.byteLength < 30 || lv.getUint32(0, true) !== 0x04034b50) throw new ElpxError('Damaged ZIP file');
         const data = await bytes(blob, local + 30 + lv.getUint16(26, true) + lv.getUint16(28, true), csize);

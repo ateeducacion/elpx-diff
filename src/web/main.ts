@@ -39,6 +39,8 @@ const UI = {
     viewNote:
       'La página como la verá el lector. Su código funciona aislado: no puede tocar esta web ni conectarse a internet, así que lo que necesite descargar no aparecerá.',
     pageError: 'No se ha podido mostrar la página: ',
+    linkOut: 'Enlace externo, se abre en otra pestaña:',
+    linkFile: 'Archivo del proyecto, para descargar:',
     fullScreen: 'Pantalla completa',
     exitFullScreen: 'Salir de pantalla completa',
     print: 'Imprimir / PDF',
@@ -103,6 +105,8 @@ const UI = {
     viewNote:
       'The page as readers will see it. Its code runs cut off: it cannot reach this site or the internet, so whatever it would download does not show.',
     pageError: 'The page could not be shown: ',
+    linkOut: 'External link, opens in another tab:',
+    linkFile: 'File of the project, to download:',
     fullScreen: 'Full screen',
     exitFullScreen: 'Exit full screen',
     print: 'Print / PDF',
@@ -187,6 +191,21 @@ const title = $('viewer-title');
 const counts = $('viewer-counts');
 const modeGroup = $('viewer-modes');
 const modes = [...modeGroup.querySelectorAll('button')];
+const link = $('viewer-link');
+const linkLabel = $('viewer-link-label');
+const linkGo = $<HTMLAnchorElement>('viewer-link-go');
+/** Where a link of the page leads out of it, above the page: the reader opens it, or downloads the file. */
+function offer(label: string, href: string, text: string, download?: string): void {
+  if (linkGo.href.startsWith('blob:')) URL.revokeObjectURL(linkGo.href);
+  link.hidden = !href;
+  if (href) link.scrollIntoView?.({ block: 'nearest' }); // above the frame, which may be scrolled past
+  linkLabel.textContent = label;
+  linkGo.textContent = text;
+  linkGo.href = href;
+  linkGo.target = download ? '' : '_blank';
+  if (download) linkGo.download = download;
+  else linkGo.removeAttribute('download');
+}
 const tabs = {
   text: $<HTMLButtonElement>('view-text'),
   split: $<HTMLButtonElement>('view-split'),
@@ -238,6 +257,7 @@ for (const [name, button] of Object.entries(tabs)) button.addEventListener('clic
 async function view(page: PageDiff, how: Mode = 'both', anchor?: string): Promise<void> {
   const mine = ++asked; // each request its own number: only the last one's page is posted
   current = page;
+  offer('', '', '');
   const here = viewable.find((v) => v.page === page);
   // A version the page lacks falls back to the changes; those are on the new version, or on the old one.
   mode = how !== 'both' && !here?.[how] ? 'both' : how;
@@ -317,7 +337,31 @@ window.addEventListener('message', (event) => {
     page?: unknown;
     mode?: unknown;
     anchor?: unknown;
+    id?: unknown;
+    url?: unknown;
   } | null;
+  if (data?.type === 'elpx-diff-file') {
+    // A file the page's scripts ask for, of the version on screen: its bytes, or nothing when it is not there.
+    const { id, path } = data;
+    if (typeof id !== 'number' || typeof path !== 'string') return;
+    const mine = asked;
+    void project!
+      .file(path, side)
+      .catch(() => undefined)
+      .then((file) => {
+        if (mine !== asked) return; // another page is there by now
+        const message = { type: 'elpx-diff-file', id, bytes: file?.bytes, mime: file?.type };
+        frame.contentWindow?.postMessage(message, '*', file ? [file.bytes.buffer] : []);
+      });
+    return;
+  }
+  if (data?.type === 'elpx-diff-link') {
+    // A link out of the package: never followed for the page, only shown, whole, for the reader to open.
+    if (typeof data.url !== 'string' || data.url.length > 2000 || !URL.canParse(data.url)) return;
+    const url = new URL(data.url);
+    if (url.protocol === 'http:' || url.protocol === 'https:') offer(UI[lang].linkOut, url.href, url.href);
+    return;
+  }
   if (data?.type === 'elpx-diff-mode') {
     // The same page shown another way, at the same iDevice.
     if (data.mode === 'old' || data.mode === 'both' || data.mode === 'new')
@@ -333,7 +377,18 @@ window.addEventListener('message', (event) => {
   if (data.path === SUMMARY_PAGE) return setView(split ? 'split' : 'text'); // "all the pages with changes": the report
   // A link leads to a page of the version on screen; it opens shown the same way.
   const next = viewable.find((v) => v[side] === data.path);
-  if (next) void view(next.page, mode);
+  if (next) return void view(next.page, mode);
+  // Not a page, but a file of the package (a PDF, say): offered to download, never opened here.
+  const [mine, path] = [asked, data.path];
+  void project!
+    .file(path, side)
+    .catch(() => undefined)
+    .then((file) => {
+      if (!file || mine !== asked) return;
+      const blob = new Blob([file.bytes as Uint8Array<ArrayBuffer>], { type: 'application/octet-stream' });
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      offer(UI[lang].linkFile, URL.createObjectURL(blob), name, name);
+    });
 });
 
 function paint(): void {

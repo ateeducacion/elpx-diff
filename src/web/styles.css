@@ -650,6 +650,13 @@ ins {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+.viewer-link {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--ink);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
 .viewer-note {
   margin: 0;
   color: var(--muted);

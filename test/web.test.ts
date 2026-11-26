@@ -238,7 +238,7 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   const newer = structuredClone(pages);
   newer[0]!.blocks![0]!.idevices[0]!.html = '<p>Hola mundo</p>';
   choose('before', file(elpxWithSite(pages), 'antes.elpx'));
-  choose('after', file(elpxWithSite(newer), 'despues.elpx'));
+  choose('after', file(elpxWithSite(newer, { 'content/resources/guia.pdf': 'PDF' }), 'despues.elpx'));
   // Once the exported pages are read, they can be seen with their design.
   const ready = (): boolean => !$<HTMLButtonElement>('view-design').disabled;
   await until(ready);
@@ -300,8 +300,42 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   say({ type: 'elpx-diff-open', path: 42 });
   say({ type: 'elpx-diff-open', path: 'html/zzz.html' }); // no such page
   expect(shown()).toBe('Primera · both');
+
+  // A file the page's scripts ask for once it runs: its bytes, or nothing when the package lacks it.
+  say({ type: 'elpx-diff-file', id: 'one', path: 'content/resources/guia.pdf' }); // nonsense
+  say({ type: 'elpx-diff-file', id: 1, path: 'content/resources/guia.pdf' });
+  say({ type: 'elpx-diff-file', id: 2, path: 'nope.png' });
+  await until(() => posted.length === 3);
+  const given = (posted.splice(1) as unknown as { type: string; id: number; bytes?: Uint8Array; mime?: string }[]).sort(
+    (x, y) => x.id - y.id,
+  );
+  expect(given.map((one) => [one.type, one.id, one.bytes && new TextDecoder().decode(one.bytes)])).toEqual([
+    ['elpx-diff-file', 1, 'PDF'],
+    ['elpx-diff-file', 2, undefined],
+  ]);
+  // A link out of the package is not followed: where it leads is shown above the page, for the reader to open.
+  const offer = $('viewer-link');
+  const go = $<HTMLAnchorElement>('viewer-link-go');
+  say({ type: 'elpx-diff-link', url: 'javascript:alert(1)' });
+  say({ type: 'elpx-diff-link', url: 'not a link' });
+  say({ type: 'elpx-diff-link', url: 42 });
+  expect(offer.hidden).toBe(true);
+  say({ type: 'elpx-diff-link', url: 'https://example.org/a?b=1' });
+  expect(offer.hidden).toBe(false);
+  expect(offer.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+    'Enlace externo, se abre en otra pestaña: https://example.org/a?b=1',
+  );
+  expect([go.target, go.rel, go.hasAttribute('download')]).toEqual(['_blank', 'noopener noreferrer', false]);
+  // A link to a file of the package that is not a page: offered to download, never opened in the app.
+  say({ type: 'elpx-diff-open', path: 'content/resources/guia.pdf' });
+  await until(() => go.hasAttribute('download'));
+  expect([go.download, go.textContent, go.target]).toEqual(['guia.pdf', 'guia.pdf', '']);
+  expect(go.href).toStartWith('blob:');
+  expect($('viewer-link-label').textContent).toBe('Archivo del proyecto, para descargar:');
+  expect(shown()).toBe('Primera · both');
   say({ type: 'elpx-diff-open', path: 'html/q.html' });
   expect(shown()).toBe('Segunda · both');
+  expect(offer.hidden).toBe(true); // what was offered goes with its page
   await loaded();
   await until(() => posted.length === 2);
   expect(posted[1]!.html).toContain('<main id="q"');

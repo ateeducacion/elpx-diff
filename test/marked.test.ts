@@ -189,6 +189,46 @@ test('marked copy: the paragraphs an iDevice gained or had edited, marked where 
   expect(index).toContain('<strong>iDevices: 1 modificado · párrafos: 2 nuevos, 1 retocado</strong>');
 });
 
+test('marked copy: a text the iDevice repeats is marked only where it is new, and a renamed box is told', async () => {
+  const pages = (name: string, html: string): P[] => [
+    { id: 'p1', title: 'P', blocks: [{ id: 'b1', name, idevices: [{ id: 'i1', html }] }] },
+  ];
+  const page = (html: string): Record<string, string> => ({
+    'index.html': `<html><body><main id="p1"><div id="page-content-p1"><div id="i1" class="idevice_node text">${html}</div></div></main></body></html>`,
+  });
+  const old = '<p>Nota</p><p>Uno</p>';
+  const now = '<p>Nota</p><p>Uno</p><p>Dos</p><p>Nota</p>';
+  const project = await markProject(elpx(pages('Caja', old), page(old)), elpx(pages('Recuadro', now), page(now)), {
+    lang: 'es',
+  });
+  const index = open(await project.site())['index.html']!;
+  // The first "Nota" was there already; only the second is new.
+  expect(index).toContain(
+    '<p>Nota</p><p>Uno</p><p data-elpx-diff-p="added">Dos</p><p data-elpx-diff-p="added">Nota</p>',
+  );
+  expect(index).toContain('<p>Recuadro: Antes se llamaba «Caja».</p>');
+  const [first] = project.diff.pages;
+  expect(await project.page(first!, { lang: 'es', mode: 'old' })).toContain(
+    '<p>Caja: En la versión nueva se llama «Recuadro».</p>',
+  );
+});
+
+test('a file of the package, for the page that asks for it or the reader who downloads it', async () => {
+  const pages: P[] = [{ id: 'p1', title: 'P' }];
+  const project = await markProject(
+    elpxWithSite(pages, { 'content/resources/a.mp3': 'OLD' }),
+    elpxWithSite(pages, { 'content/resources/a.mp3': 'NEW', 'content/resources/guia.pdf': 'PDF' }),
+  );
+  const told = async (path: string, side?: 'old' | 'new'): Promise<unknown> => {
+    const file = await project.file(path, side);
+    return file && [strFromU8(file.bytes), file.type];
+  };
+  expect(await told('content/resources/a.mp3')).toEqual(['NEW', 'audio/mpeg']);
+  expect(await told('content/resources/a.mp3', 'old')).toEqual(['OLD', 'audio/mpeg']);
+  expect(await told('content/resources/guia.pdf')).toEqual(['PDF', '']);
+  expect(await told('content/resources/guia.pdf', 'old')).toBeUndefined();
+});
+
 test('the old version of a page, the new one and the changes: what is gone marked in red, and the bar switches', async () => {
   const gone: P = {
     id: 'p9',

@@ -133,8 +133,9 @@ html:not(.elpx-diff-off) [data-elpx-diff-p=removed]{background:#ffd7d5!important
 /**
  * First script of a page shown in the viewer, where it runs with an origin of
  * its own and no network: a stand-in for the storage and cookies the browser
- * refuses there (eXeLearning's scripts use them), and its links to other pages
- * of the package sent to the app instead of followed.
+ * refuses there (eXeLearning's scripts use them) and for alert(), the files
+ * its scripts ask for once it runs brought from the app, and its links sent to
+ * the app instead of followed.
  */
 const viewScript = (path: string, anchor = '', clean = false): string => `<script>(function () {${
   clean ? "\n  document.documentElement.classList.add('elpx-diff-off');" : ''
@@ -160,11 +161,86 @@ const viewScript = (path: string, anchor = '', clean = false): string => `<scrip
   try { document.cookie; } catch (e) {
     try { Object.defineProperty(document, 'cookie', { get: function () { return ''; }, set: function () {}, configurable: true }); } catch (e2) {}
   }
+  // No dialogs in the frame: what a script would say with alert() is shown on the page, and it is not asked twice.
+  window.alert = function (text) {
+    var box = document.createElement('div');
+    box.setAttribute('role', 'alert');
+    box.style.cssText = 'position:fixed;top:.75rem;left:50%;transform:translateX(-50%);z-index:2147483001;display:flex;gap:.75rem;align-items:center;max-width:min(36rem,calc(100vw - 1.5rem));padding:.6rem .75rem;border:1px solid #1b1f24;border-radius:6px;background:#fff;color:#1b1f24;font:.9375rem/1.4 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25);white-space:pre-wrap';
+    box.appendChild(document.createTextNode(String(text)));
+    var ok = document.createElement('button');
+    ok.type = 'button';
+    ok.textContent = 'OK';
+    ok.style.cssText = 'margin:0;padding:.2rem .6rem;border:1px solid #1b1f24;border-radius:4px;background:#1b1f24;color:#fff;font:inherit;cursor:pointer';
+    ok.onclick = function () { box.remove(); };
+    box.appendChild(ok);
+    (document.body || document.documentElement).appendChild(box);
+  };
+  window.confirm = function () { return true; };
+  // What the page's scripts ask for once it runs (a picture an iDevice puts in, a video, a template it fetches)
+  // is not inlined, and the frame has no network: the app is asked for it, and gives its bytes.
+  var files = {};
+  var waiting = {};
+  var count = 0;
+  function inside(raw) {
+    if (!raw || /^(#|data:|blob:|about:|javascript:|mailto:|tel:)/i.test(raw)) return null;
+    try {
+      var url = new URL(raw, 'http://elpx/' + PATH);
+      if (url.origin === 'http://elpx') return decodeURIComponent(url.pathname.slice(1));
+      // An address a script made from the frame's own.
+      var dir = location.pathname.replace(/[^/]*$/, '');
+      if (url.origin === location.origin && url.pathname.indexOf(dir) === 0) return decodeURIComponent(url.pathname.slice(dir.length));
+    } catch (e) {}
+    return null;
+  }
+  function file(path) {
+    return files[path] || (files[path] = new Promise(function (resolve) {
+      waiting[++count] = resolve;
+      parent.postMessage({ type: 'elpx-diff-file', id: count, path: path }, '*');
+    }));
+  }
+  function fill(node) {
+    if (!/^(IMG|AUDIO|VIDEO|SOURCE|TRACK|INPUT)$/.test(node.tagName)) return;
+    ['src', 'poster'].forEach(function (name) {
+      var path = inside(node.getAttribute(name));
+      if (path) file(path).then(function (got) {
+        if (!got || inside(node.getAttribute(name)) !== path) return;
+        node.setAttribute(name, got.url);
+        if (node.tagName === 'SOURCE' && node.parentNode && node.parentNode.load) node.parentNode.load();
+      });
+    });
+  }
+  function sweep(node) {
+    if (node.nodeType !== 1) return;
+    fill(node);
+    [].forEach.call(node.querySelectorAll('img,audio,video,source,track,input'), fill);
+  }
+  new MutationObserver(function (changes) {
+    changes.forEach(function (change) {
+      if (change.type === 'attributes') fill(change.target);
+      else [].forEach.call(change.addedNodes, sweep);
+    });
+  }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'poster'] });
+  var fetched = window.fetch;
+  if (fetched) window.fetch = function (input) {
+    var path = inside(typeof input === 'string' ? input : input && input.url);
+    if (!path) return fetched.apply(this, arguments);
+    return file(path).then(function (got) {
+      if (!got) throw new TypeError('Failed to fetch');
+      return new Response(got.blob);
+    });
+  };
   // In the app the versions are switched from its own header, above the page: the bar is not shown.
   document.documentElement.classList.add('elpx-diff-in-app');
   // Another way of seeing the page, asked for by the app: it lands on the iDevice now in sight.
   addEventListener('message', function (event) {
-    if (event.source === parent && event.data && event.data.type === 'elpx-diff-switch') ask(event.data.mode);
+    if (event.source !== parent || !event.data) return;
+    if (event.data.type === 'elpx-diff-switch') ask(event.data.mode);
+    var got = event.data.type === 'elpx-diff-file' && waiting[event.data.id];
+    if (got) {
+      delete waiting[event.data.id];
+      var blob = event.data.bytes ? new Blob([event.data.bytes], { type: event.data.mime || '' }) : null;
+      got(blob && { blob: blob, url: URL.createObjectURL(blob) });
+    }
   });
   function ask(mode) {
     // The iDevice in sight, then those before it, then those after: the other version lands on the first it has.
@@ -205,8 +281,13 @@ const viewScript = (path: string, anchor = '', clean = false): string => `<scrip
       return;
     }
     var href = link.getAttribute('href');
-    if (!href || href.charAt(0) === '#' || /^(https?|mailto):/i.test(href)) return;
+    if (!href || href.charAt(0) === '#' || /^mailto:/i.test(href)) return;
     event.preventDefault();
+    // A link out of the package cannot open from the frame: the app shows where it leads, for the reader to open.
+    if (/^https?:/i.test(href)) {
+      parent.postMessage({ type: 'elpx-diff-link', url: link.href }, '*');
+      return;
+    }
     var path;
     try { path = decodeURIComponent(new URL(href, 'http://elpx/' + PATH).pathname.slice(1)); } catch (e) { return; }
     parent.postMessage({ type: 'elpx-diff-open', path: path }, '*');
@@ -278,14 +359,25 @@ function markPage(
     (m) => marks.get(m[1]!)?.status === 'modified',
   );
   for (const m of starts.reverse()) {
-    const kinds = new Map<string, string>();
-    for (const line of marks.get(m[1]!)!.lines)
-      if (line.op === sign && comparable(line.text)) kinds.set(comparable(line.text), line.words ? 'edited' : gone);
+    // A text the iDevice repeats is told apart by its turn: the lines of this version, in order, say which of
+    // its blocks changed and which did not.
+    const kinds = new Map<string, (string | undefined)[]>();
+    for (const line of marks.get(m[1]!)!.lines) {
+      const key = comparable(line.text);
+      if (!key || (line.op !== sign && line.op !== ' ')) continue;
+      const turns = kinds.get(key) ?? [];
+      turns.push(line.op === sign ? (line.words ? 'edited' : gone) : undefined);
+      kinds.set(key, turns);
+    }
+    const turn = new Map<string, number>();
     const from = m.index + m[0].length;
     const next = html.slice(from).search(/<div\b[^>]*\bidevice_node\b|<\/main\b/i);
     const to = next < 0 ? html.length : from + next;
     const part = html.slice(from, to).replace(LEAF, (all, tag: string, attrs: string, inner: string) => {
-      const kind = kinds.get(comparable(htmlToLines(inner).join(' ')));
+      const key = comparable(htmlToLines(inner).join(' '));
+      const n = turn.get(key) ?? 0;
+      turn.set(key, n + 1);
+      const kind = kinds.get(key)?.[n];
       if (!kind) return all;
       // Headings are marked but not counted: some iDevices rebuild them with their scripts, and the marks go.
       if (!/^h\d$/i.test(tag)) {
@@ -320,6 +412,13 @@ function markPage(
       ? `<p>${esc(side === 'new' ? t.renamedFrom(page.oldTitle || t.untitled) : t.renamedTo(page.title || t.untitled))}</p>`
       : '',
     page.moved ? `<p>${t.movedPage}</p>` : '',
+    // A box with another name counts as a change: which one, and its other name.
+    ...page.blocks
+      .filter((b) => b.oldName !== undefined && b.status === 'modified')
+      .map(
+        (b) =>
+          `<p>${esc(side === 'new' ? b.name || t.untitled : b.oldName || t.untitled)}: ${esc(side === 'new' ? t.renamedFrom(b.oldName || t.untitled) : t.renamedTo(b.name || t.untitled))}</p>`,
+      ),
     missing.length
       ? `<details><summary>${here(missing.length)}</summary><ul>${missing
           .map(
@@ -456,6 +555,22 @@ const MIME: Record<string, string> = {
   ttf: 'font/ttf',
   otf: 'font/otf',
 };
+/** What a page's scripts may ask for besides pictures and fonts: sound, video, and the text they fetch. */
+const MEDIA: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  ogv: 'video/ogg',
+  vtt: 'text/vtt',
+  html: 'text/html',
+  json: 'application/json',
+};
+/** A file bigger than this is not handed to a page shown in the app. */
+const MAX_FILE = 64 * 1024 * 1024;
 // A file bigger than this is left out of a page shown in the app (a picture that size is rare in a page).
 const MAX_INLINE = 8 * 1024 * 1024;
 
@@ -554,6 +669,8 @@ function reader(
       const found = new Map<PageDiff, { path: string; html: string }>();
       for (const path of [...entries.keys()].filter((name) => PAGE.test(name))) {
         const html = await text(path);
+        // Inflating them is not instant in a large project: the app stays responsive between one and the next.
+        await new Promise((resolve) => setTimeout(resolve));
         const id = /<main\b[^>]*?\sid\s*=\s*["']([^"']+)["']/i.exec(html)?.[1];
         const page = id === undefined ? undefined : byId.get(id);
         if (page && !found.has(page)) found.set(page, { path, html });
@@ -621,7 +738,7 @@ function reader(
       .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, '')
       // srcset out: its pictures would not be inlined, and the frame cannot fetch them.
       .replace(/<[a-z][^>]*>/gi, (tag) => tag.replace(/\ssrcset\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ''))
-      // Links out of the package open in a new tab; the rest stay, and viewScript takes them to the app.
+      // Links out of the package would open in a new tab; viewScript takes them, and the rest, to the app.
       .replace(/<(a|area)\b([^>]*)>/gi, (all, tag: string, attrs: string) => {
         const href = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
         const url = (href?.[1] ?? href?.[2] ?? href?.[3] ?? '').trim();
@@ -696,6 +813,13 @@ export interface MarkedProject {
    * the page has.
    */
   page(page: PageDiff, options?: { lang?: Lang; mode?: Mode; anchor?: string }): Promise<string | undefined>;
+  /**
+   * A file of one version's package, with its media type (empty when it is
+   * not one a page shows or fetches): what the viewer hands to a page whose
+   * scripts ask for it, or the reader downloads. None when the package lacks
+   * it or it is over 64 MiB.
+   */
+  file(path: string, side?: Side): Promise<{ bytes: Uint8Array; type: string } | undefined>;
   /** The whole website, marked, with elpx-diff.html, as a ZIP. */
   site(): Promise<Uint8Array>;
 }
@@ -776,6 +900,12 @@ export async function markProject(
         )
       );
     },
+    async file(path, side = 'new') {
+      const entry = sides[side].entries.get(path);
+      if (!entry || entry.size > MAX_FILE) return undefined;
+      const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+      return { bytes: await entry.read(), type: MIME[extension] ?? MEDIA[extension] ?? '' };
+    },
     async site() {
       let total = 0;
       for (const e of entries.values()) total += e.size;
@@ -789,7 +919,8 @@ export async function markProject(
       for (const e of entries.values()) {
         const html = replaced.get(e.name);
         files[e.name] = [
-          html === undefined ? await e.read() : new TextEncoder().encode(html),
+          // The whole package is bounded above, so one large file (a video) is not refused on its own.
+          html === undefined ? await e.read(MAX_TOTAL) : new TextEncoder().encode(html),
           { level: STORED.test(e.name) ? 0 : 6 },
         ];
       }
