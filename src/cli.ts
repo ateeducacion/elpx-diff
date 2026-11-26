@@ -3,7 +3,16 @@ import { basename } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import pkg from '../package.json' with { type: 'json' };
-import { diffElpx, ElpxError, type Lang, loadProject, projectToText, renderReport, renderText } from './index.js';
+import {
+  diffElpx,
+  ElpxError,
+  type Lang,
+  loadProject,
+  markedSite,
+  projectToText,
+  renderReport,
+  renderText,
+} from './index.js';
 
 const HELP = `elpx-diff ${pkg.version} — compare two eXeLearning projects (.elpx)
 
@@ -14,6 +23,8 @@ Usage:
 Options:
   --json             the comparison as one JSON document
   --html             the comparison as a self-contained HTML report
+  --marked FILE      also write FILE, a ZIP with the new version's website and
+                     the changes marked on each page (open elpx-diff.html)
   -o, --output FILE  write to FILE instead of standard output
   --lang es|en       language of the output (default: from LANG)
   --no-color         plain text without colours
@@ -48,6 +59,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
       options: {
         json: { type: 'boolean' },
         html: { type: 'boolean' },
+        marked: { type: 'string' },
         output: { type: 'string', short: 'o' },
         lang: { type: 'string' },
         'no-color': { type: 'boolean' },
@@ -71,7 +83,12 @@ export async function main(argv: string[], io: Io): Promise<number> {
     const names = external
       ? { before: `a/${positionals[0]}`, after: `b/${positionals[0]}` }
       : { before: basename(before), after: basename(after) };
-    const diff = await diffElpx(await open(before), await open(after), names);
+    let diff;
+    if (values.marked) {
+      const marked = await markedSite(await open(before), await open(after), { lang, names });
+      writeFileSync(values.marked, marked.zip);
+      diff = marked.diff;
+    } else diff = await diffElpx(await open(before), await open(after), names);
     emit(
       values.json
         ? `${JSON.stringify(diff, null, 2)}\n`

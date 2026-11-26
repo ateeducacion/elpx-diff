@@ -33,7 +33,7 @@
     "dist/*.d.ts"
   ],
   "scripts": {
-    "dev": "bun src/web/index.html",
+    "dev": "bun src/web/index.html src/web/viewer.html",
     "cli": "bun src/bin.ts",
     "build": "bun scripts/build.ts",
     "lint": "bun lint && bun fmt --check",

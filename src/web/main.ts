@@ -1,6 +1,7 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { diffElpx, type ElpxDiff } from '../diff.js';
+import type { ElpxDiff, PageDiff } from '../diff.js';
 import type { Lang } from '../i18n.js';
+import { type MarkedProject, markProject, type Mode, type Side, SUMMARY_PAGE } from '../marked.js';
 import { renderHtml } from '../render.js';
 import { renderReport } from '../report.js';
 
@@ -23,6 +24,16 @@ const UI = {
     error: 'No se ha podido comparar: ',
     saveHtml: 'Descargar HTML',
     saveJson: 'JSON',
+    viewPage: 'Ver con su diseño →',
+    viewPageHint: 'Muestra la página con el diseño, el menú y las imágenes del proyecto, y los cambios marcados',
+    viewNote:
+      'La página como la verá el lector. Su código funciona aislado: no puede tocar esta web ni conectarse a internet, así que lo que necesite descargar no aparecerá.',
+    pageError: 'No se ha podido mostrar la página: ',
+    fullScreen: 'Pantalla completa',
+    oldVersion: 'versión anterior',
+    newVersion: 'versión nueva',
+    changesView: 'cambios',
+    exitFullScreen: 'Salir de pantalla completa',
     print: 'Imprimir / PDF',
     onlyChanges: 'Solo lo que cambia',
     sideBySide: 'Dos columnas',
@@ -71,6 +82,16 @@ const UI = {
     error: 'The comparison failed: ',
     saveHtml: 'Download HTML',
     saveJson: 'JSON',
+    viewPage: 'View with its design →',
+    viewPageHint: "Shows the page with the project's design, menu and pictures, and the changes marked",
+    viewNote:
+      'The page as readers will see it. Its code runs cut off: it cannot reach this site or the internet, so whatever it would download does not show.',
+    pageError: 'The page could not be shown: ',
+    fullScreen: 'Full screen',
+    oldVersion: 'old version',
+    newVersion: 'new version',
+    changesView: 'changes',
+    exitFullScreen: 'Exit full screen',
     print: 'Print / PDF',
     onlyChanges: 'Only what changes',
     sideBySide: 'Side by side',
@@ -113,6 +134,9 @@ const sideBySide = $<HTMLInputElement>('side-by-side');
 sideBySide.checked = localStorage.getItem('view') === 'split';
 const files: { before?: File; after?: File } = {};
 let diff: ElpxDiff | undefined;
+let project: MarkedProject | undefined;
+/** The pages that can be viewed, in order, with their path inside each version's package. */
+let viewable: { page: PageDiff; new?: string; old?: string }[] = [];
 let run = 0;
 
 // Light or dark: the scheme chosen with the header button, remembered in this browser, or else the system's.
@@ -138,7 +162,116 @@ function show(): void {
   b!.textContent = diff.after.name;
   actions.hidden = false;
   say(UI[lang].done(diff.summary.added, diff.summary.modified, diff.summary.removed));
+  viewButtons();
 }
+
+/** "View with its design" on each page of the result that either version exported. */
+function viewButtons(): void {
+  const pages = diff?.pages ?? [];
+  for (const { page } of viewable) {
+    const summary = result.querySelector(`#page-${pages.indexOf(page)} > summary`);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'view-page';
+    button.textContent = UI[lang].viewPage;
+    button.title = UI[lang].viewPageHint;
+    button.addEventListener('click', (event) => {
+      event.preventDefault(); // inside <summary>: do not fold the page
+      void view(page);
+    });
+    // At the end of the line of counts, as a link of its size; a page without counts gets that line for it alone.
+    let counts = summary?.querySelector('.counts');
+    if (counts) counts.append(' · ');
+    else {
+      counts = document.createElement('span');
+      counts.className = 'counts';
+      summary?.append(counts);
+    }
+    counts.append(button);
+  }
+}
+
+const viewer = $<HTMLDialogElement>('viewer');
+const frame = $<HTMLIFrameElement>('viewer-frame');
+/** The page in the viewer, how it is shown, and which version's page that is. */
+let current = -1;
+let mode: Mode = 'both';
+let side: Side = 'new';
+let loads = 0;
+
+/** A fresh viewer.html in the frame, so that nothing a previous page did stays in it. */
+function freshFrame(): Promise<void> {
+  const mine = ++loads;
+  return new Promise((resolve) => {
+    frame.onload = () => {
+      if (mine !== loads) return;
+      frame.onload = null; // later loads are the page's own doing
+      resolve();
+    };
+    frame.src = `viewer.html?${mine}`;
+  });
+}
+
+/** Shows one page, marked, in the frame (viewer.html), where its scripts run cut off from the app. */
+async function view(page: PageDiff, how: Mode = 'both', anchor?: string): Promise<void> {
+  const mine = (current = viewable.findIndex((v) => v.page === page));
+  const here = viewable[mine]!;
+  // A version the page lacks falls back to the changes; those are on the new version, or on the old one.
+  mode = how !== 'both' && !here[how] ? 'both' : how;
+  side = mode === 'old' ? 'old' : mode === 'new' || here.new ? 'new' : 'old';
+  const t = UI[lang];
+  $('viewer-title').textContent =
+    `${page.title || '—'} · ${mode === 'old' ? t.oldVersion : mode === 'new' ? t.newVersion : t.changesView}`;
+  if (!viewer.open) viewer.showModal();
+  const ready = freshFrame();
+  let html: string;
+  try {
+    html = (await project!.page(page, { lang, mode, ...(anchor ? { anchor } : {}) }))!;
+  } catch (error) {
+    html = `<p style="font:1rem system-ui;padding:1rem">${esc(UI[lang].pageError + (error instanceof Error ? error.message : String(error)))}</p>`;
+  }
+  await ready;
+  if (mine === current) frame.contentWindow?.postMessage({ type: 'elpx-diff-page', html }, '*');
+}
+const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+// The viewer already fills the window; full screen also hides the browser's bars (not on phones that lack it).
+const full = $<HTMLButtonElement>('viewer-full');
+full.hidden = !document.fullscreenEnabled;
+full.addEventListener('click', () => {
+  void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+});
+const fullLabel = (): void => {
+  full.textContent = document.fullscreenElement ? UI[lang].exitFullScreen : UI[lang].fullScreen;
+};
+document.addEventListener('fullscreenchange', fullLabel);
+viewer.addEventListener('close', () => {
+  // Closing stops the page: nothing pending is posted, and its scripts go with it.
+  current = -1;
+  loads++;
+  frame.src = 'about:blank';
+  if (document.fullscreenElement) void document.exitFullscreen();
+});
+// A link to another page, clicked in the frame, comes as a message: only from the frame, only to a known page.
+window.addEventListener('message', (event) => {
+  if (event.source !== frame.contentWindow || !viewer.open) return;
+  // Anything may come from the page: each field is checked before use (OpenMessage, ModeMessage).
+  const data = event.data as { type?: unknown; path?: unknown; mode?: unknown; anchor?: unknown } | null;
+  if (data?.type === 'elpx-diff-mode') {
+    // The bar's switch: the same page shown another way, at the same iDevice.
+    if (data.mode === 'old' || data.mode === 'both' || data.mode === 'new')
+      void view(
+        viewable[current]!.page,
+        data.mode,
+        typeof data.anchor === 'string' ? data.anchor.slice(0, 2000) : undefined,
+      );
+    return;
+  }
+  if (data?.type !== 'elpx-diff-open' || typeof data.path !== 'string') return;
+  if (data.path === SUMMARY_PAGE) viewer.close();
+  // A link leads to a page of the version on screen; it opens shown the same way.
+  const next = viewable.find((v) => v[side] === data.path);
+  if (next) void view(next.page, mode);
+});
 
 function paint(): void {
   const t = UI[lang];
@@ -153,6 +286,7 @@ function paint(): void {
     }
   }
   document.body.classList.toggle('compared', !!files.before && !!files.after);
+  fullLabel();
   $('swap').setAttribute('aria-label', t.swap);
   $('swap').title = t.swap;
   $('theme').setAttribute('aria-label', isDark() ? t.themeLight : t.themeDark);
@@ -167,16 +301,25 @@ function paint(): void {
 async function compare(): Promise<void> {
   const mine = ++run;
   diff = undefined;
+  project = undefined;
+  viewable = [];
   result.replaceChildren();
   actions.hidden = true;
   paint();
   if (!files.before || !files.after) return;
   say(UI[lang].comparing);
   try {
-    const next = await diffElpx(files.before, files.after);
+    const next = await markProject(files.before, files.after, { lang });
     if (mine !== run) return; // a newer comparison started meanwhile
-    diff = next;
+    [project, diff] = [next, next.diff];
     show();
+    // Which pages have an exported page is known once their files are read; their buttons come then.
+    const [newer, older] = await Promise.all([next.paths('new'), next.paths('old')]);
+    if (mine !== run) return;
+    viewable = next.diff.pages
+      .filter((p) => newer.has(p) || older.has(p))
+      .map((p) => ({ page: p, new: newer.get(p), old: older.get(p) }));
+    viewButtons();
   } catch (error) {
     if (mine === run) say(UI[lang].error + (error instanceof Error ? error.message : String(error)), true);
   }

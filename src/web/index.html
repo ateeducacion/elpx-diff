@@ -126,6 +126,17 @@
         </div>
       </div>
     </footer>
+    <!-- A page of the new version, marked, in viewer.html: sandboxed without allow-same-origin, so the page's
+         scripts run with an origin of their own, and with no network (its own policy). No pop-ups: links out do not open. -->
+    <dialog id="viewer" class="viewer" aria-labelledby="viewer-title">
+      <header>
+        <h2 id="viewer-title"></h2>
+        <button type="button" id="viewer-full"></button>
+        <button type="button" class="primary" data-close data-t="close"></button>
+        <p class="viewer-note" data-t="viewNote"></p>
+      </header>
+      <iframe id="viewer-frame" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe>
+    </dialog>
     <dialog id="cli-panel" aria-labelledby="cli-title">
       <h2 id="cli-title" data-t="cliTitle"></h2>
       <p data-t="cliIntro"></p>

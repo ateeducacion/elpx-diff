@@ -20,9 +20,22 @@ test('iDevices by the name eXeLearning gives them; unknown types keep their iden
 });
 
 test('strings and sizes in both languages', () => {
+  expect(strings('es').tally({ added: 2, modified: 0, removed: 1 })).toBe('iDevices: 2 añadidos, 1 eliminado');
+  expect(strings('en').tally({ added: 0, modified: 1, removed: 0 })).toBe('iDevices: 1 modified');
+  expect(strings('es').changedPages(1)).toBe('1 página con cambios');
+  expect(strings('es').unchangedPages(2)).toBe('2 páginas sin cambios.');
+  expect(strings('en').unchangedPages(2)).toBe('2 pages without changes.');
   expect(strings('es').skipped(3)).toBe('3 líneas sin cambios');
+  expect(strings('es').skipped(1)).toBe('1 línea sin cambios');
+  expect(strings('en').skipped(1)).toBe('1 unchanged line');
   expect(strings('en').skipped(3)).toBe('3 unchanged lines');
   expect(Object.keys(strings('en'))).toEqual(Object.keys(strings('es')));
+  // Every message with a value reads as a sentence in both languages.
+  for (const lang of ['es', 'en'] as const)
+    for (const value of Object.values(strings(lang)))
+      if (typeof value === 'function') expect((value as (...args: unknown[]) => string)(2, 1, 'X')).toMatch(/\p{L}/u);
+  expect(strings('en').renamedTo('Unit two')).toBe('In the new version it is called “Unit two”.');
+  expect(strings('es').addedHere(2)).toBe('Añadido en la versión nueva (2)');
   expect([0, 999, 1000, 1_500_000, 2_000_000_000, 5e12].map(formatSize)).toEqual([
     '0 B',
     '999 B',
@@ -185,6 +198,8 @@ test('HTML: summary, sections, badges and the diff lines', async () => {
   expect(html).toContain('<section id="metadata"><details open><summary><h2>Metadatos (1)</h2></summary>');
   expect(html).toContain('<td></td><td><ins>ATE</ins></td>');
   expect(html).toContain('<details id="page-0" class="page modified depth-0" open>');
+  // Each page says under its title how many of its iDevices changed.
+  expect(html).toContain('<span class="counts">iDevices: 1 añadido, 1 modificado, 1 eliminado</span></summary>');
   expect(html).toContain(
     '<h3>Unidad dos <del class="old-name">Unidad 2</del></h3><span class="badge modified">Modificado</span><span class="badge renamed">Renombrado</span>',
   );

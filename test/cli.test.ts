@@ -3,10 +3,12 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { unzipSync } from 'fflate';
+
 import { main } from '../src/cli.js';
 import { loadProject } from '../src/model.js';
 import { projectToText } from '../src/render.js';
-import { v1, v2 } from './helpers.js';
+import { elpxWithSite, v1, v2 } from './helpers.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'elpx-diff-'));
 const [a, b, bad] = [join(dir, 'v1.elpx'), join(dir, 'v2.elpx'), join(dir, 'bad.elpx')];
@@ -73,6 +75,19 @@ test('-o writes to a file, without colours, and prints nothing', async () => {
   const html = join(dir, 'out.html');
   await run([a, b, '--html', '--output', html]);
   expect(readFileSync(html, 'utf8')).toContain('<h1>');
+});
+
+test('--marked also writes the marked website as a ZIP; the report goes on as usual', async () => {
+  const site = join(dir, 'site.elpx');
+  writeFileSync(site, elpxWithSite([{ id: 'p', title: 'Página' }]));
+  const out = join(dir, 'marcada.zip');
+  const marked = await run([a, site, '--marked', out]);
+  expect(marked.code).toBe(1);
+  expect(marked.out).toStartWith('v1.elpx → site.elpx\n');
+  expect(Object.keys(unzipSync(readFileSync(out)))).toContain('elpx-diff.html');
+  const missing = await run([a, b, '--marked', out]);
+  expect(missing).toMatchObject({ code: 2, out: '' });
+  expect(missing.err).toContain('no exported website');
 });
 
 test('textconv prints one project as text', async () => {

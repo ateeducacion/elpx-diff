@@ -39,6 +39,9 @@ regenerated), decodes game data and ignores fields that change on every save.
 4. If the user wants a document to share, write one with
    `npx -y elpx-diff "<old>" "<new>" --html --lang es -o "<report>.html"` (`--lang en` for English):
    a self-contained page, no scripts.
+5. If the user wants to review the changes on the pages themselves, add `--marked "<site>.zip"`: the
+   new version's website with added and modified iDevices marked in place and a summary page,
+   `elpx-diff.html`, to open after unzipping. (In the web app, "View with its design" shows each one, working.)
 
 ## Git
 

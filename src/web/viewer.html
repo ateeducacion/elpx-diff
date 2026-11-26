@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      The frame where the app shows a page of the project, marked. The app loads it sandboxed without
+      allow-same-origin, so it has an origin of its own: the page's scripts run, but cannot reach the app or
+      what other pages of this site keep in the browser. This policy gives it no network at all: everything
+      the page needs comes inlined in the one message the app posts, which replaces this document.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'"
+    />
+    <script>
+      // Only inside the app's sandboxed frame (an opaque origin) and only from the app itself: framed by
+      // another site, or without the sandbox, this page writes nothing. Other messages are let pass.
+      addEventListener('message', function page(event) {
+        if (self.origin !== 'null' || event.source !== parent || event.origin !== location.origin) return;
+        if (!event.data || event.data.type !== 'elpx-diff-page') return;
+        removeEventListener('message', page);
+        document.open();
+        document.write(event.data.html);
+        document.close();
+      });
+    </script>
+  </head>
+  <body></body>
+</html>
