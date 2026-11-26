@@ -239,13 +239,9 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   newer[0]!.blocks![0]!.idevices[0]!.html = '<p>Hola mundo</p>';
   choose('before', file(elpxWithSite(pages), 'antes.elpx'));
   choose('after', file(elpxWithSite(newer), 'despues.elpx'));
-  await until(() => document.querySelectorAll('.view-page').length === 2);
-  const button = document.querySelector<HTMLButtonElement>('#page-0 .view-page')!;
-  expect(button.textContent).toBe('Ver con su diseño →');
-  expect(button.parentElement!.textContent).toBe('iDevices: 1 modificado · Ver con su diseño →'); // at the end of the counts
-  expect(button.title).toBe(
-    'Muestra la página con el diseño, el menú y las imágenes del proyecto, y los cambios marcados',
-  );
+  // Once the exported pages are read, they can be seen with their design.
+  const ready = (): boolean => !$<HTMLButtonElement>('view-design').disabled;
+  await until(ready);
 
   // Scripts, but no allow-same-origin: an origin of its own, apart from the app.
   const frame = $<HTMLIFrameElement>('viewer-frame');
@@ -270,8 +266,7 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
     frame.onload!(new Event('load'));
   };
 
-  const opened = button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  expect(opened).toBe(false); // the page in the result does not fold
+  $('view-design').click(); // the first page with changes
   // The viewer takes the report's place; the option that only the report has goes away.
   expect(design()).toBe(true);
   expect($('viewer').parentElement!.className).toBe('layout');
@@ -364,8 +359,9 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
 
   // A page the new version removed opens in its old version; it has no new one to switch to.
   choose('before', file(elpxWithSite([...pages, { id: 'r', title: 'Tercera' }]), 'antes.elpx'));
-  await until(() => document.querySelectorAll('.view-page').length === 3);
-  document.querySelector<HTMLButtonElement>('details.page.removed .view-page')!.click();
+  await until(ready);
+  $('view-design').click();
+  say({ type: 'elpx-diff-open', page: 2 }); // listed in the menu of the first page
   expect(shown()).toBe('Tercera · both');
   expect(modeButton('new').disabled).toBe(true);
   expect(modeButton('new').title).toBe('Esta página no está en la versión nueva');
@@ -392,7 +388,7 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   expect(posted.pop()!.html).toContain('<main id="r"');
   $('view-text').click();
   choose('before', file(elpxWithSite(pages), 'antes.elpx'));
-  await until(() => document.querySelectorAll('.view-page').length === 2);
+  await until(ready);
 
   // A page that cannot be put together (its style sheet is compressed in a way nobody reads): said in the frame.
   const damage = (zip: Uint8Array, entry: string): void => {
@@ -409,8 +405,8 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   });
   damage(broken, 'theme/style.css');
   choose('after', file(broken, 'rota.elpx'));
-  await until(() => document.querySelectorAll('.view-page').length === 2);
-  document.querySelector<HTMLButtonElement>('#page-0 .view-page')!.click();
+  await until(ready);
+  $('view-design').click();
   await loaded();
   await until(() => posted.length === 8);
   expect(posted[7]!.html).toContain('No se ha podido mostrar la página: ');
@@ -430,7 +426,6 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   expect($('status').textContent).toBe('Comparación lista: 0 añadidos, 1 modificados, 0 eliminados.');
   expect($<HTMLButtonElement>('view-design').disabled).toBe(true);
   expect($('view-design').title).toStartWith('Estos archivos no traen las páginas exportadas');
-  expect(document.querySelectorAll('.view-page')).toHaveLength(0);
 
   // Full screen: the button asks for it and offers to leave it; going back to the report leaves it too.
   const full = $('viewer-full');
@@ -454,7 +449,6 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   choose('before', file(v1(), 'v1.elpx'));
   choose('after', file(v2(), 'v2.elpx'));
   await until(() => !$('actions').hidden);
-  expect(document.querySelectorAll('.view-page')).toHaveLength(0); // no exported website, no button
   expect($<HTMLButtonElement>('view-design').disabled).toBe(true);
   delete (frame as unknown as Record<string, unknown>)['contentWindow'];
 });
@@ -513,25 +507,25 @@ test('a late result never replaces a newer one', async () => {
   expect(document.querySelectorAll('.compare span')[1]!.textContent).toBe('final.elpx');
 });
 
-test('the example: two versions of the manual, served by this site, compared at a click', async () => {
+test('the example: two versions of a resource, served by this site, compared at a click', async () => {
   const real = globalThis.fetch;
   const asked: string[] = [];
   globalThis.fetch = (async (url: string) => {
     asked.push(url);
-    return new Response(file(url.includes('3') ? v1() : v2(), url));
+    return new Response(file(url.includes('v1') ? v1() : v2(), url));
   }) as unknown as typeof fetch;
-  expect($('example').textContent).toStartWith('Probar con un ejemplo: el manual de eXeLearning');
+  expect($('example').textContent).toStartWith('Probar con un ejemplo: dos versiones');
   $('example').click();
   expect($('status').textContent).toBe('Cargando el ejemplo…');
-  await until(() => document.querySelectorAll('.compare span')[1]?.textContent === 'manual-4.elpx');
-  expect(asked).toEqual(['examples/manual-3.elpx', 'examples/manual-4.elpx']);
-  expect(document.querySelectorAll('.compare span')[0]!.textContent).toBe('manual-3.elpx');
+  await until(() => document.querySelectorAll('.compare span')[1]?.textContent === 'ciclo-del-agua-v2.elpx');
+  expect(asked).toEqual(['examples/ciclo-del-agua-v1.elpx', 'examples/ciclo-del-agua-v2.elpx']);
+  expect(document.querySelectorAll('.compare span')[0]!.textContent).toBe('ciclo-del-agua-v1.elpx');
   expect(stats()).toStartWith('+3');
 
   // A site built without them says so.
   globalThis.fetch = (async () => new Response('', { status: 404 })) as unknown as typeof fetch;
   $('example').click();
   await until(() => $('status').classList.contains('error'));
-  expect($('status').textContent).toBe('No se ha podido cargar el ejemplo: manual-3.elpx: HTTP 404');
+  expect($('status').textContent).toBe('No se ha podido cargar el ejemplo: ciclo-del-agua-v1.elpx: HTTP 404');
   globalThis.fetch = real;
 });

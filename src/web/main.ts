@@ -24,7 +24,7 @@ const UI = {
     error: 'No se ha podido comparar: ',
     saveHtml: 'Descargar HTML',
     saveJson: 'JSON',
-    example: 'Probar con un ejemplo: el manual de eXeLearning, de la versión 3.0 a la 4 (52 MB)',
+    example: 'Probar con un ejemplo: dos versiones de un recurso sobre el ciclo del agua',
     exampleLoading: 'Cargando el ejemplo…',
     exampleError: 'No se ha podido cargar el ejemplo: ',
     viewAs: 'Cómo ver los cambios',
@@ -36,8 +36,6 @@ const UI = {
     viewSplit: 'Dos columnas',
     viewDesign: 'Con su diseño',
     noDesign: 'Estos archivos no traen las páginas exportadas, así que no pueden verse con su diseño',
-    viewPage: 'Ver con su diseño →',
-    viewPageHint: 'Muestra la página con el diseño, el menú y las imágenes del proyecto, y los cambios marcados',
     viewNote:
       'La página como la verá el lector. Su código funciona aislado: no puede tocar esta web ni conectarse a internet, así que lo que necesite descargar no aparecerá.',
     pageError: 'No se ha podido mostrar la página: ',
@@ -90,7 +88,7 @@ const UI = {
     error: 'The comparison failed: ',
     saveHtml: 'Download HTML',
     saveJson: 'JSON',
-    example: "Try an example: eXeLearning's manual, from version 3.0 to 4 (52 MB)",
+    example: 'Try an example: two versions of a resource on the water cycle',
     exampleLoading: 'Loading the example…',
     exampleError: 'The example could not be loaded: ',
     viewAs: 'How to see the changes',
@@ -102,8 +100,6 @@ const UI = {
     viewSplit: 'Two columns',
     viewDesign: 'With its design',
     noDesign: 'These files do not carry their exported pages, so they cannot be seen with their design',
-    viewPage: 'View with its design →',
-    viewPageHint: "Shows the page with the project's design, menu and pictures, and the changes marked",
     viewNote:
       'The page as readers will see it. Its code runs cut off: it cannot reach this site or the internet, so whatever it would download does not show.',
     pageError: 'The page could not be shown: ',
@@ -178,37 +174,10 @@ function show(): void {
   b!.textContent = diff.after.name;
   actions.hidden = false;
   say(UI[lang].done(diff.summary.added, diff.summary.modified, diff.summary.removed));
-  viewButtons();
   // The viewer takes the report's place. Moved, its frame starts again: the page is shown anew.
   result.querySelector('.layout')!.append(viewer);
   views();
   if (design && current) void view(current, mode);
-}
-
-/** "View with its design" on each page of the result that either version exported. */
-function viewButtons(): void {
-  const pages = diff?.pages ?? [];
-  for (const { page } of viewable) {
-    const summary = result.querySelector(`#page-${pages.indexOf(page)} > summary`);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'view-page';
-    button.textContent = UI[lang].viewPage;
-    button.title = UI[lang].viewPageHint;
-    button.addEventListener('click', (event) => {
-      event.preventDefault(); // inside <summary>: do not fold the page
-      setView('design', page);
-    });
-    // At the end of the line of counts, as a link of its size; a page without counts gets that line for it alone.
-    let counts = summary?.querySelector('.counts');
-    if (counts) counts.append(' · ');
-    else {
-      counts = document.createElement('span');
-      counts.className = 'counts';
-      summary?.append(counts);
-    }
-    counts.append(button);
-  }
 }
 
 const viewer = $('viewer');
@@ -400,6 +369,7 @@ async function compare(): Promise<void> {
   project = undefined;
   viewable = [];
   current = undefined;
+  mode = 'both';
   setView(split ? 'split' : 'text');
   result.replaceChildren();
   actions.hidden = true;
@@ -425,7 +395,6 @@ async function compare(): Promise<void> {
   viewable = diff.pages
     .filter((p) => newer.has(p) || older.has(p))
     .map((p) => ({ page: p, new: newer.get(p), old: older.get(p) }));
-  viewButtons();
   views();
 }
 
@@ -475,12 +444,14 @@ $('lang').addEventListener('click', () => {
   paint();
 });
 
-// The example: two versions of eXeLearning's manual, from this same site, compared as if they had been chosen.
+// The example: two versions of a small resource, in the page's language, from this same site, compared as if
+// they had been chosen (scripts/examples.ts writes them).
 $('example').addEventListener('click', async () => {
   say(UI[lang].exampleLoading);
   try {
     const [before, after] = await Promise.all(
-      ['manual-3.elpx', 'manual-4.elpx'].map(async (name) => {
+      [1, 2].map(async (version) => {
+        const name = `${lang === 'es' ? 'ciclo-del-agua' : 'water-cycle'}-v${version}.elpx`;
         const response = await fetch(`examples/${name}`);
         if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
         return new File([await response.blob()], name);

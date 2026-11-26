@@ -122,7 +122,8 @@ bun run dev        # web app with reload
 bun run cli a.elpx b.elpx
 bun run check      # bun lint + bun fmt --check, bun check (types), bun test --coverage
 bun run fix        # apply lint fixes and format
-bun run build      # dist/: index.js + types, cli.js, web/ (with the two manuals of its example, downloaded once)
+bun run build      # dist/: index.js + types, cli.js, web/
+bun scripts/examples.ts  # writes the web app's example again (src/web/examples/)
 ```
 
 Everything runs on Bun (canary in CI): `bun lint`, `bun fmt`, `bun check`, `bun test` and
