@@ -244,7 +244,7 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
 
   // Scripts, but no allow-same-origin: an origin of its own, apart from the app.
   const frame = $<HTMLIFrameElement>('viewer-frame');
-  expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-popups allow-popups-to-escape-sandbox');
+  expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms');
   // The browser would load viewer.html; here the load is announced by hand and the message caught.
   const posted: { type: string; html: string }[] = [];
   const inner = { postMessage: (message: { type: string; html: string }) => void posted.push(message) };
@@ -302,6 +302,11 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   await until(() => posted.length === 5);
   expect(posted[4]!.html).toContain('var ANCHOR = "idevice-x";');
   say({ type: 'elpx-diff-open', path: SUMMARY_PAGE }); // "all the pages with changes": back to the result
+  expect($<HTMLDialogElement>('viewer').open).toBe(false);
+  // Closing stops the page, and a closed viewer hears nothing from it: it does not open again by itself.
+  expect(frame.src).toBe('about:blank');
+  say({ type: 'elpx-diff-mode', mode: 'old' });
+  say({ type: 'elpx-diff-open', path: 'html/q.html' });
   expect($<HTMLDialogElement>('viewer').open).toBe(false);
 
   // A page the new version removed opens in its old version; it has no new one to switch to.

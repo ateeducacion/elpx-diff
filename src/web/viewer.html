@@ -13,16 +13,16 @@
       content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'"
     />
     <script>
-      addEventListener(
-        'message',
-        function (event) {
-          if (event.source !== parent || !event.data || event.data.type !== 'elpx-diff-page') return;
-          document.open();
-          document.write(event.data.html);
-          document.close();
-        },
-        { once: true },
-      );
+      // Only inside the app's sandboxed frame (an opaque origin) and only from the app itself: framed by
+      // another site, or without the sandbox, this page writes nothing. Other messages are let pass.
+      addEventListener('message', function page(event) {
+        if (self.origin !== 'null' || event.source !== parent || event.origin !== location.origin) return;
+        if (!event.data || event.data.type !== 'elpx-diff-page') return;
+        removeEventListener('message', page);
+        document.open();
+        document.write(event.data.html);
+        document.close();
+      });
     </script>
   </head>
   <body></body>

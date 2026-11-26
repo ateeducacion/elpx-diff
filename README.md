@@ -81,7 +81,7 @@ import { diffElpx, markProject, renderHtml, renderReport, renderText } from 'elp
 
 const diff = await diffElpx(oldFile, newFile); // File, Blob or Uint8Array
 const marked = await markProject(oldFile, newFile, { lang: 'en' }); // marked.diff is the comparison
-await marked.page(marked.diff.pages[0]); // one page, marked and self-contained (no scripts)
+await marked.page(marked.diff.pages[0]); // one page, marked and self-contained: it carries the project's scripts, show it only in a sandboxed frame
 await marked.site(); // the whole marked website, ZIP bytes
 diff.summary; // { added, modified, removed }
 renderText(diff, { lang: 'en', color: true }); // terminal
@@ -105,7 +105,7 @@ page gets an origin of its own, so it cannot reach the app, nor what other pages
 keep in the browser; and `viewer.html`'s own policy gives it no network at all, so it cannot send
 anything anywhere. Everything it needs comes inlined in the one message the app posts to it. Its
 links to other pages come back to the app as messages, which the app follows only to pages of the
-same project; links out open in a new tab.
+same project; links out do not open, since a pop-up could carry the project's text away.
 
 ## Limits
 

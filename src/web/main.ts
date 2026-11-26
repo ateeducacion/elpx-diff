@@ -244,10 +244,16 @@ const fullLabel = (): void => {
   full.textContent = document.fullscreenElement ? UI[lang].exitFullScreen : UI[lang].fullScreen;
 };
 document.addEventListener('fullscreenchange', fullLabel);
-viewer.addEventListener('close', () => void (document.fullscreenElement && document.exitFullscreen()));
+viewer.addEventListener('close', () => {
+  // Closing stops the page: nothing pending is posted, and its scripts go with it.
+  current = -1;
+  loads++;
+  frame.src = 'about:blank';
+  if (document.fullscreenElement) void document.exitFullscreen();
+});
 // A link to another page, clicked in the frame, comes as a message: only from the frame, only to a known page.
 window.addEventListener('message', (event) => {
-  if (event.source !== frame.contentWindow) return;
+  if (event.source !== frame.contentWindow || !viewer.open) return;
   // Anything may come from the page: each field is checked before use (OpenMessage, ModeMessage).
   const data = event.data as { type?: unknown; path?: unknown; mode?: unknown; anchor?: unknown } | null;
   if (data?.type === 'elpx-diff-mode') {
