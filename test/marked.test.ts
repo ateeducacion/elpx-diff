@@ -450,7 +450,7 @@ test('a page for the viewer: self-contained, scripts included, nothing left to f
   expect(html.match(/\.loop\{\}/g)).toHaveLength(1); // a sheet that imports itself, once
   expect(html).toContain('<body class="exe-export"><div class="exe-content pre-js">');
   // Links out open in a new tab; the rest stay as they are (the viewer's script takes them to the app).
-  expect(html).toContain('<a href="../index.html">Uno</a>');
+  expect(html).toContain('<a href="../index.html" data-elpx-diff-nav="modified">Uno</a>'); // its menu says what changed
   expect(html).toContain('<a href="../html/p3.html#x" class="next">Tres</a>');
   expect(html).toContain("<a href='#arriba'>Arriba</a>");
   expect(html).toContain(
@@ -479,4 +479,79 @@ test('paths inside the package, seen from a page', () => {
     '%E0%A4%A',
   ])
     expect(resolvePath('html/a.html', rel)).toBeUndefined();
+});
+
+test("the page's own menu says which pages changed: added or modified in the new version, removed in the old one", async () => {
+  const idev = (id: string, html: string): P['blocks'] => [
+    { id: `b-${id}`, name: '', idevices: [{ id: `i-${id}`, html }] },
+  ];
+  const old: P[] = [
+    { id: 'a', title: 'Inicio', blocks: idev('a', '<p>Igual</p>') },
+    { id: 'b', title: 'Instalación', blocks: idev('b', '<p>Antes</p>') },
+    { id: 'c', title: 'Uso', blocks: idev('c', '<p>Uno</p>') },
+  ];
+  const neu: P[] = [
+    old[0]!,
+    { id: 'c', title: 'Uso', blocks: idev('c', '<p>Dos</p>') },
+    { id: 'd', title: 'Instalar', blocks: idev('d', '<p>Ahora</p>') },
+  ];
+  // The menu eXeLearning exports: from a page in html/, the first page is ../index.html and the rest are beside it.
+  const withMenu = (pages: P[]): Uint8Array => {
+    const nav = `<nav id="siteNav"><ul>${pages
+      .map((p, n) => `<li><a href='${n === 0 ? '../index.html' : `${p.id}.html`}' class="daddy">${p.title}</a></li>`)
+      .join('')}<li><a href="https://exelearning.net">eXe</a></li><li><a name="top">—</a></li></ul></nav>`;
+    const site = Object.entries(Object.fromEntries(Object.entries(unzipSync(elpxWithSite(pages)))));
+    return elpxWithSite(
+      pages,
+      Object.fromEntries(
+        site
+          .filter(([name]) => name.endsWith('.html'))
+          .map(([name, bytes]) => [
+            name,
+            strFromU8(bytes).replace(
+              '<body>',
+              `<body>${name.includes('/') ? nav : nav.replaceAll('../index.html', 'index.html').replace(/href='(\w)\.html'/g, "href='html/$1.html'")}`,
+            ),
+          ]),
+      ),
+    );
+  };
+  const marked = await markProject(withMenu(old), withMenu(neu), { lang: 'es' });
+  const page = (title: string): PageDiff => marked.diff.pages.find((p) => p.title === title)!;
+  const links = (html: string): string[] =>
+    [...html.matchAll(/<a href='([^']+)'( data-elpx-diff-nav="(\w+)")?/g)].map((m) => `${m[1]} ${m[3] ?? '-'}`);
+
+  // The new version, from a page in html/: what was edited and what is new.
+  expect(links((await marked.page(page('Uso')))!)).toEqual(['../index.html -', 'c.html modified', 'd.html added']);
+  // From the first page the same pages have other paths.
+  expect(links((await marked.page(page('Inicio')))!)).toEqual([
+    'index.html -',
+    'html/c.html modified',
+    'html/d.html added',
+  ]);
+  // The old version: the page that is gone, which the new menu no longer has.
+  expect(links((await marked.page(page('Uso'), { mode: 'old' }))!)).toEqual([
+    '../index.html -',
+    'b.html removed',
+    'c.html modified',
+  ]);
+  // Painted by the style sheet, and not when the marks are off; links out and anchors are left alone.
+  const html = (await marked.page(page('Uso')))!;
+  // The pages only the other version has are listed too, where they were: the one that is gone, in red, before
+  // the page that followed it; the new one, in the old version's menu, at its end. They lead nowhere.
+  expect(html).toContain(
+    `<li data-elpx-diff-nav-extra><a href="#" data-elpx-diff-page="1" data-elpx-diff-nav="removed" title="Esta página no está en la versión nueva.">Instalación</a></li><li><a href='c.html'`,
+  );
+  expect((await marked.page(page('Uso'), { mode: 'old' }))!).toContain(
+    '<li data-elpx-diff-nav-extra><a href="#" data-elpx-diff-page="3" data-elpx-diff-nav="added" title="Página nueva.">Instalar</a></li></ul></nav>',
+  );
+  expect(html).toContain('.elpx-diff-off nav li[data-elpx-diff-nav-extra]{display:none!important}');
+  expect(html).toContain('html:not(.elpx-diff-off) nav a[data-elpx-diff-nav=added]');
+  expect(html).toContain('<a href="https://exelearning.net"');
+  expect(html).not.toContain('exelearning.net" data-elpx-diff-nav');
+  // The marked website carries the same marks.
+  const zip = unzipSync(await marked.site());
+  expect(strFromU8(zip['html/c.html']!)).toContain(`<a href='d.html' data-elpx-diff-nav="added"`);
+  // There the page that is gone is only named: the website has nowhere to lead to.
+  expect(strFromU8(zip['html/c.html']!)).toContain('<a data-elpx-diff-nav="removed" title=');
 });

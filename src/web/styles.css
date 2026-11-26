@@ -350,8 +350,9 @@ button.link {
   min-height: 2.75rem;
   cursor: pointer;
 }
-.toggle:last-of-type {
-  margin-right: auto;
+/* The buttons that do something, at the end of the line. */
+.actions .primary {
+  margin-left: auto;
 }
 .toggle input {
   width: 1.1rem;
@@ -582,44 +583,103 @@ ins {
   text-decoration: underline;
   cursor: pointer;
 }
-/* The viewer takes the whole window. */
-.viewer {
-  width: 100vw;
-  max-width: none;
-  height: 100dvh;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
+/* The example, at the end of the page. */
+.example {
+  margin: 2.5rem 0 0;
+  font-size: 0.875rem;
 }
-.viewer[open] {
-  display: flex;
+/* What is seen, chosen above the result: two tabs, underlined, apart from the buttons that do something. */
+.views {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-right: 0.5rem;
+}
+.views button {
+  padding: 0 0.75rem;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  background: none;
+  font-size: 1rem;
+}
+.views button[aria-pressed="true"] {
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+.views button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+/* The viewer: in place of the report, only while pages are seen with their design. */
+.viewer {
+  display: none;
+  flex: 999 1 35rem;
   flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.design .viewer {
+  display: flex;
+}
+/* The page brings its own menu: the report and its index give it the whole width. */
+.design .doc,
+.design .toc {
+  display: none;
 }
 .viewer header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1rem;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid var(--rule);
 }
-.viewer h2 {
+.viewer-page {
   flex: 1 1 14rem;
+  min-width: 0;
+}
+.viewer .counts {
+  margin: 0.2rem 0 0;
+  font: 400 0.8125rem var(--mono);
+  color: var(--muted);
+}
+/* Which version of the page: three buttons in one piece, the one shown filled. */
+.modes {
+  display: inline-flex;
+}
+.modes button + button {
+  border-left: 0;
+}
+.modes button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.modes button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.viewer h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .viewer-note {
-  flex-basis: 100%;
   margin: 0;
   color: var(--muted);
   font-size: 0.8125rem;
 }
 .viewer iframe {
-  flex: 1;
   width: 100%;
-  border: 0;
+  height: calc(100dvh - 9rem);
+  min-height: 24rem;
+  border: 1px solid var(--ink);
   background: #fff;
+}
+.viewer:fullscreen {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+}
+.viewer:fullscreen iframe {
+  flex: 1;
+  height: auto;
 }
 /* The page's own summary, on a line of its own under the title. */
 .page > summary .counts {
@@ -945,20 +1005,6 @@ td:has(ins) {
 }
 
 @media (max-width: 40rem) {
-  .viewer header {
-    gap: 0.4rem 0.75rem;
-    padding: 0.5rem 0.75rem;
-  }
-  .viewer h2 {
-    font-size: 1rem;
-  }
-  .viewer header button {
-    min-height: 2.5rem;
-  }
-  .viewer-note {
-    font-size: 0.75rem;
-    line-height: 1.35;
-  }
   .swap {
     width: 100%;
     border-width: 1px 0;
@@ -996,6 +1042,8 @@ td:has(ins) {
   .status,
   .app-header button,
   .app-footer,
+  .example,
+  .viewer,
   .toc {
     display: none;
   }

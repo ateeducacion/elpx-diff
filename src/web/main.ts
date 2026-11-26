@@ -1,6 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
-import type { ElpxDiff, PageDiff } from '../diff.js';
-import type { Lang } from '../i18n.js';
+import { type ElpxDiff, type PageDiff, pageTally } from '../diff.js';
+import { type Lang, strings } from '../i18n.js';
 import { type MarkedProject, markProject, type Mode, type Side, SUMMARY_PAGE } from '../marked.js';
 import { renderHtml } from '../render.js';
 import { renderReport } from '../report.js';
@@ -24,19 +24,27 @@ const UI = {
     error: 'No se ha podido comparar: ',
     saveHtml: 'Descargar HTML',
     saveJson: 'JSON',
+    example: 'Probar con un ejemplo: el manual de eXeLearning, de la versión 3.0 a la 4 (52 MB)',
+    exampleLoading: 'Cargando el ejemplo…',
+    exampleError: 'No se ha podido cargar el ejemplo: ',
+    viewAs: 'Cómo ver los cambios',
+    version: 'Qué versión de la página',
+    modeOld: 'Anterior',
+    modeBoth: 'Cambios',
+    modeNew: 'Nueva',
+    viewText: 'Texto',
+    viewSplit: 'Dos columnas',
+    viewDesign: 'Con su diseño',
+    noDesign: 'Estos archivos no traen las páginas exportadas, así que no pueden verse con su diseño',
     viewPage: 'Ver con su diseño →',
     viewPageHint: 'Muestra la página con el diseño, el menú y las imágenes del proyecto, y los cambios marcados',
     viewNote:
       'La página como la verá el lector. Su código funciona aislado: no puede tocar esta web ni conectarse a internet, así que lo que necesite descargar no aparecerá.',
     pageError: 'No se ha podido mostrar la página: ',
     fullScreen: 'Pantalla completa',
-    oldVersion: 'versión anterior',
-    newVersion: 'versión nueva',
-    changesView: 'cambios',
     exitFullScreen: 'Salir de pantalla completa',
     print: 'Imprimir / PDF',
     onlyChanges: 'Solo lo que cambia',
-    sideBySide: 'Dos columnas',
     madeBy: 'Creado por el Área de Tecnología Educativa del Gobierno de Canarias',
     cliTitle: 'Desde la terminal',
     cliIntro:
@@ -82,19 +90,27 @@ const UI = {
     error: 'The comparison failed: ',
     saveHtml: 'Download HTML',
     saveJson: 'JSON',
+    example: "Try an example: eXeLearning's manual, from version 3.0 to 4 (52 MB)",
+    exampleLoading: 'Loading the example…',
+    exampleError: 'The example could not be loaded: ',
+    viewAs: 'How to see the changes',
+    version: 'Which version of the page',
+    modeOld: 'Old',
+    modeBoth: 'Changes',
+    modeNew: 'New',
+    viewText: 'Text',
+    viewSplit: 'Two columns',
+    viewDesign: 'With its design',
+    noDesign: 'These files do not carry their exported pages, so they cannot be seen with their design',
     viewPage: 'View with its design →',
     viewPageHint: "Shows the page with the project's design, menu and pictures, and the changes marked",
     viewNote:
       'The page as readers will see it. Its code runs cut off: it cannot reach this site or the internet, so whatever it would download does not show.',
     pageError: 'The page could not be shown: ',
     fullScreen: 'Full screen',
-    oldVersion: 'old version',
-    newVersion: 'new version',
-    changesView: 'changes',
     exitFullScreen: 'Exit full screen',
     print: 'Print / PDF',
     onlyChanges: 'Only what changes',
-    sideBySide: 'Side by side',
     madeBy: 'Made by the Educational Technology Area of the Government of the Canary Islands',
     cliTitle: 'From the terminal',
     cliIntro:
@@ -130,8 +146,8 @@ const result = $('result');
 const actions = $('actions');
 
 let lang: Lang = (localStorage.getItem('lang') ?? navigator.language).startsWith('en') ? 'en' : 'es';
-const sideBySide = $<HTMLInputElement>('side-by-side');
-sideBySide.checked = localStorage.getItem('view') === 'split';
+/** The report's edits in two columns, before and after, or in one; remembered in this browser. */
+let split = localStorage.getItem('view') === 'split';
 const files: { before?: File; after?: File } = {};
 let diff: ElpxDiff | undefined;
 let project: MarkedProject | undefined;
@@ -155,7 +171,7 @@ function say(text: string, error = false): void {
 function show(): void {
   if (!diff) return;
   // renderHtml escapes every piece of project text; nothing from the files is inserted as markup.
-  result.innerHTML = `<p class="compare"><span></span> → <span></span></p>${renderHtml(diff, lang, { split: sideBySide.checked })}`;
+  result.innerHTML = `<p class="compare"><span></span> → <span></span></p>${renderHtml(diff, lang, { split })}`;
   if (localStorage.getItem('toc') === 'closed') result.querySelector<HTMLDetailsElement>('.toc details')!.open = false;
   const [a, b] = result.querySelectorAll('.compare span');
   a!.textContent = diff.before.name;
@@ -163,6 +179,10 @@ function show(): void {
   actions.hidden = false;
   say(UI[lang].done(diff.summary.added, diff.summary.modified, diff.summary.removed));
   viewButtons();
+  // The viewer takes the report's place. Moved, its frame starts again: the page is shown anew.
+  result.querySelector('.layout')!.append(viewer);
+  views();
+  if (design && current) void view(current, mode);
 }
 
 /** "View with its design" on each page of the result that either version exported. */
@@ -177,7 +197,7 @@ function viewButtons(): void {
     button.title = UI[lang].viewPageHint;
     button.addEventListener('click', (event) => {
       event.preventDefault(); // inside <summary>: do not fold the page
-      void view(page);
+      setView('design', page);
     });
     // At the end of the line of counts, as a link of its size; a page without counts gets that line for it alone.
     let counts = summary?.querySelector('.counts');
@@ -191,83 +211,157 @@ function viewButtons(): void {
   }
 }
 
-const viewer = $<HTMLDialogElement>('viewer');
+const viewer = $('viewer');
 const frame = $<HTMLIFrameElement>('viewer-frame');
-/** The page in the viewer, how it is shown, and which version's page that is. */
-let current = -1;
+// Kept at hand: the viewer leaves the document each time the result is made anew.
+const title = $('viewer-title');
+const counts = $('viewer-counts');
+const modeGroup = $('viewer-modes');
+const modes = [...modeGroup.querySelectorAll('button')];
+const tabs = {
+  text: $<HTMLButtonElement>('view-text'),
+  split: $<HTMLButtonElement>('view-split'),
+  design: $<HTMLButtonElement>('view-design'),
+};
+type View = keyof typeof tabs;
+/** Whether pages are seen with their design; the page in the viewer, how it is shown, and which version's it is. */
+let design = false;
+let current: PageDiff | undefined;
 let mode: Mode = 'both';
 let side: Side = 'new';
-let loads = 0;
+let asked = 0;
+/** Whether the page in the frame is the project's, with the script that tells where the reader is. */
+let scripted = false;
 
-/** A fresh viewer.html in the frame, so that nothing a previous page did stays in it. */
-function freshFrame(): Promise<void> {
-  const mine = ++loads;
-  return new Promise((resolve) => {
-    frame.onload = () => {
-      if (mine !== loads) return;
-      frame.onload = null; // later loads are the page's own doing
-      resolve();
-    };
-    frame.src = `viewer.html?${mine}`;
-  });
+/** The three views' buttons, and the option that only the report has. */
+function views(): void {
+  const now: View = design ? 'design' : split ? 'split' : 'text';
+  result.classList.toggle('design', design);
+  for (const [name, button] of Object.entries(tabs)) button.setAttribute('aria-pressed', String(name === now));
+  tabs.design.disabled = viewable.length === 0;
+  tabs.design.title = viewable.length === 0 ? UI[lang].noDesign : '';
+  $('only-changes-toggle').hidden = design;
 }
+
+/** The report, in one column or two, or the pages with their design: then one is shown, the first that changed. */
+function setView(to: View, page?: PageDiff): void {
+  const was = split;
+  if (to !== 'design') split = to === 'split';
+  design = to === 'design' && viewable.length > 0;
+  if (design) {
+    const first = viewable.find((v) => v.page.status !== 'unchanged') ?? viewable[0]!;
+    void view(page ?? current ?? first.page, page ? 'both' : mode);
+  } else {
+    // Leaving stops the page: nothing pending is posted, and its scripts go with it.
+    asked++;
+    frame.contentWindow?.location.replace('about:blank');
+    if (document.fullscreenElement) void document.exitFullscreen();
+  }
+  if (split !== was) {
+    localStorage.setItem('view', split ? 'split' : 'inline');
+    show();
+  }
+  views();
+}
+for (const [name, button] of Object.entries(tabs)) button.addEventListener('click', () => setView(name as View));
 
 /** Shows one page, marked, in the frame (viewer.html), where its scripts run cut off from the app. */
 async function view(page: PageDiff, how: Mode = 'both', anchor?: string): Promise<void> {
-  const mine = (current = viewable.findIndex((v) => v.page === page));
-  const here = viewable[mine]!;
+  const mine = ++asked; // each request its own number: only the last one's page is posted
+  current = page;
+  const here = viewable.find((v) => v.page === page);
   // A version the page lacks falls back to the changes; those are on the new version, or on the old one.
-  mode = how !== 'both' && !here[how] ? 'both' : how;
-  side = mode === 'old' ? 'old' : mode === 'new' || here.new ? 'new' : 'old';
+  mode = how !== 'both' && !here?.[how] ? 'both' : how;
+  side = mode === 'old' ? 'old' : mode === 'new' || here?.new ? 'new' : 'old';
   const t = UI[lang];
-  $('viewer-title').textContent =
-    `${page.title || '—'} · ${mode === 'old' ? t.oldVersion : mode === 'new' ? t.newVersion : t.changesView}`;
-  if (!viewer.open) viewer.showModal();
-  const ready = freshFrame();
+  title.textContent = page.title || '—';
+  // What the report says under the page's title, and the versions the page has.
+  const tally = pageTally(page);
+  counts.textContent = tally.added + tally.modified + tally.removed ? strings(lang).tally(tally) : '';
+  for (const button of modes) {
+    const which = button.dataset['mode'] as Mode;
+    button.setAttribute('aria-pressed', String(which === mode));
+    button.disabled = which !== 'both' && !here?.[which];
+    button.title = button.disabled ? strings(lang)[which === 'new' ? 'notInNew' : 'notInOld'] : '';
+  }
+  scripted = false;
+  // A fresh viewer.html, so that nothing a previous page did stays in it; replaced, not navigated to, so that
+  // the pages seen do not pile up in the tab's history.
+  const ready = new Promise<void>((resolve) => {
+    frame.onload = () => {
+      // Not the empty document a frame starts with (put in the page, it announces that one too).
+      if (mine !== asked || blank()) return;
+      frame.onload = null; // later loads are the page's own doing
+      resolve();
+    };
+  });
+  frame.contentWindow?.location.replace(`viewer.html?${mine}`);
+  const message = (text: string): string => `<p style="font:1rem system-ui;padding:1rem">${esc(text)}</p>`;
   let html: string;
+  let ours = true; // the project's page, not the note that it could not be shown
   try {
     html = (await project!.page(page, { lang, mode, ...(anchor ? { anchor } : {}) }))!;
   } catch (error) {
-    html = `<p style="font:1rem system-ui;padding:1rem">${esc(UI[lang].pageError + (error instanceof Error ? error.message : String(error)))}</p>`;
+    ours = false;
+    html = message(t.pageError + (error instanceof Error ? error.message : String(error)));
   }
   await ready;
-  if (mine === current) frame.contentWindow?.postMessage({ type: 'elpx-diff-page', html }, '*');
+  if (mine !== asked) return;
+  frame.contentWindow?.postMessage({ type: 'elpx-diff-page', html }, '*');
+  scripted = ours;
 }
+for (const button of modes)
+  button.addEventListener('click', () => {
+    const to = button.dataset['mode'] as Mode;
+    if (!current || to === mode) return;
+    // The page says where the reader is, so that the other version opens there (it answers with the message
+    // below); one that is not there yet, or could not be put together, is just shown from its top.
+    if (scripted) frame.contentWindow?.postMessage({ type: 'elpx-diff-switch', mode: to }, '*');
+    else void view(current, to);
+  });
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-// The viewer already fills the window; full screen also hides the browser's bars (not on phones that lack it).
+/** Whether the frame holds its empty first document; viewer.html, of another origin, does not let itself be read. */
+function blank(): boolean {
+  try {
+    return frame.contentWindow!.location.href === 'about:blank';
+  } catch {
+    return false;
+  }
+}
+// Full screen gives the page the whole screen (not on phones that lack it).
 const full = $<HTMLButtonElement>('viewer-full');
 full.hidden = !document.fullscreenEnabled;
 full.addEventListener('click', () => {
-  void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+  void (document.fullscreenElement ? document.exitFullscreen() : viewer.requestFullscreen());
 });
 const fullLabel = (): void => {
   full.textContent = document.fullscreenElement ? UI[lang].exitFullScreen : UI[lang].fullScreen;
 };
 document.addEventListener('fullscreenchange', fullLabel);
-viewer.addEventListener('close', () => {
-  // Closing stops the page: nothing pending is posted, and its scripts go with it.
-  current = -1;
-  loads++;
-  frame.src = 'about:blank';
-  if (document.fullscreenElement) void document.exitFullscreen();
-});
 // A link to another page, clicked in the frame, comes as a message: only from the frame, only to a known page.
 window.addEventListener('message', (event) => {
-  if (event.source !== frame.contentWindow || !viewer.open) return;
+  if (event.source !== frame.contentWindow || !design || !current) return;
   // Anything may come from the page: each field is checked before use (OpenMessage, ModeMessage).
-  const data = event.data as { type?: unknown; path?: unknown; mode?: unknown; anchor?: unknown } | null;
+  const data = event.data as {
+    type?: unknown;
+    path?: unknown;
+    page?: unknown;
+    mode?: unknown;
+    anchor?: unknown;
+  } | null;
   if (data?.type === 'elpx-diff-mode') {
-    // The bar's switch: the same page shown another way, at the same iDevice.
+    // The same page shown another way, at the same iDevice.
     if (data.mode === 'old' || data.mode === 'both' || data.mode === 'new')
-      void view(
-        viewable[current]!.page,
-        data.mode,
-        typeof data.anchor === 'string' ? data.anchor.slice(0, 2000) : undefined,
-      );
+      void view(current, data.mode, typeof data.anchor === 'string' ? data.anchor.slice(0, 2000) : undefined);
     return;
   }
-  if (data?.type !== 'elpx-diff-open' || typeof data.path !== 'string') return;
-  if (data.path === SUMMARY_PAGE) viewer.close();
+  if (data?.type !== 'elpx-diff-open') return;
+  // A page only the other version has, picked in the menu where it is listed: shown in the version that has it.
+  const other =
+    typeof data.page === 'number' ? viewable.find((v) => v.page === diff!.pages[data.page as number]) : undefined;
+  if (other) return void view(other.page);
+  if (typeof data.path !== 'string') return;
+  if (data.path === SUMMARY_PAGE) return setView(split ? 'split' : 'text'); // "all the pages with changes": the report
   // A link leads to a page of the version on screen; it opens shown the same way.
   const next = viewable.find((v) => v[side] === data.path);
   if (next) void view(next.page, mode);
@@ -287,6 +381,8 @@ function paint(): void {
   }
   document.body.classList.toggle('compared', !!files.before && !!files.after);
   fullLabel();
+  $('views').setAttribute('aria-label', t.viewAs);
+  modeGroup.setAttribute('aria-label', t.version);
   $('swap').setAttribute('aria-label', t.swap);
   $('swap').title = t.swap;
   $('theme').setAttribute('aria-label', isDark() ? t.themeLight : t.themeDark);
@@ -303,6 +399,8 @@ async function compare(): Promise<void> {
   diff = undefined;
   project = undefined;
   viewable = [];
+  current = undefined;
+  setView(split ? 'split' : 'text');
   result.replaceChildren();
   actions.hidden = true;
   paint();
@@ -313,16 +411,22 @@ async function compare(): Promise<void> {
     if (mine !== run) return; // a newer comparison started meanwhile
     [project, diff] = [next, next.diff];
     show();
-    // Which pages have an exported page is known once their files are read; their buttons come then.
-    const [newer, older] = await Promise.all([next.paths('new'), next.paths('old')]);
-    if (mine !== run) return;
-    viewable = next.diff.pages
-      .filter((p) => newer.has(p) || older.has(p))
-      .map((p) => ({ page: p, new: newer.get(p), old: older.get(p) }));
-    viewButtons();
   } catch (error) {
     if (mine === run) say(UI[lang].error + (error instanceof Error ? error.message : String(error)), true);
+    return;
   }
+  // Which pages have an exported page is known once their files are read; seeing them with their design comes
+  // then. A package whose pages cannot be read still has its report: it just cannot be seen that way.
+  const [newer, older] = await Promise.all([project.paths('new'), project.paths('old')]).catch(() => [
+    new Map<PageDiff, string>(),
+    new Map<PageDiff, string>(),
+  ]);
+  if (mine !== run) return;
+  viewable = diff.pages
+    .filter((p) => newer.has(p) || older.has(p))
+    .map((p) => ({ page: p, new: newer.get(p), old: older.get(p) }));
+  viewButtons();
+  views();
 }
 
 /** Two files at once fill both sides, older first. */
@@ -371,6 +475,24 @@ $('lang').addEventListener('click', () => {
   paint();
 });
 
+// The example: two versions of eXeLearning's manual, from this same site, compared as if they had been chosen.
+$('example').addEventListener('click', async () => {
+  say(UI[lang].exampleLoading);
+  try {
+    const [before, after] = await Promise.all(
+      ['manual-3.elpx', 'manual-4.elpx'].map(async (name) => {
+        const response = await fetch(`examples/${name}`);
+        if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+        return new File([await response.blob()], name);
+      }),
+    );
+    [files.before, files.after] = [before, after];
+    void compare();
+  } catch (error) {
+    say(UI[lang].exampleError + (error instanceof Error ? error.message : String(error)), true);
+  }
+});
+
 // The CLI and Skill panels: native dialogs, with a copy button on each command.
 for (const button of document.querySelectorAll<HTMLElement>('[data-open]')) {
   button.addEventListener('click', () => $<HTMLDialogElement>(button.dataset['open']!).showModal());
@@ -395,7 +517,7 @@ function save(name: string, type: string, text: string): void {
 }
 $('save-html').addEventListener(
   'click',
-  () => diff && save('elpx-diff.html', 'text/html', renderReport(diff, lang, { split: sideBySide.checked })),
+  () => diff && save('elpx-diff.html', 'text/html', renderReport(diff, lang, { split })),
 );
 $('save-json').addEventListener(
   'click',
@@ -403,10 +525,6 @@ $('save-json').addEventListener(
 );
 const onlyChanges = $<HTMLInputElement>('only-changes');
 onlyChanges.addEventListener('change', () => result.classList.toggle('only-changes', onlyChanges.checked));
-sideBySide.addEventListener('change', () => {
-  localStorage.setItem('view', sideBySide.checked ? 'split' : 'inline');
-  show();
-});
 // The index folds away to give the comparison the whole width; the choice is remembered.
 result.addEventListener(
   'toggle',
@@ -417,6 +535,7 @@ result.addEventListener(
   true,
 );
 $('print').addEventListener('click', () => {
+  setView(split ? 'split' : 'text'); // the report is what is printed
   for (const d of result.querySelectorAll('details')) d.open = true;
   window.print();
 });

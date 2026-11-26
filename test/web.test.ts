@@ -9,6 +9,9 @@ import { elpxWithSite, exportedSite, type P, v1, v2 } from './helpers.js';
 
 // The page's script runs against the real index.html in a DOM; only the browser's file picker is simulated.
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
+/** The page the viewer shows and the version of it that is pressed. */
+const shown = (): string =>
+  `${$('viewer-title').textContent} · ${document.querySelector('#viewer-modes [aria-pressed="true"]')?.getAttribute('data-mode')}`;
 const file = (bytes: Uint8Array | string, name: string, lastModified = 0): File =>
   new File([bytes as Uint8Array<ArrayBuffer>], name, { lastModified });
 /** Waits for the page to reach a state (comparisons are asynchronous). */
@@ -192,19 +195,21 @@ test('the index folds away and stays folded across re-renders', () => {
   expect(localStorage.getItem('toc')).toBe('open');
 });
 
-test('"side by side" shows edits in two columns, remembers it, and the report follows', async () => {
+test('"two columns" shows edits before and after, remembers it, and the report follows', async () => {
   expect($('print').textContent).toBe('Imprimir / PDF');
-  expect(document.querySelector('[data-t="sideBySide"]')!.textContent).toBe('Dos columnas');
+  expect([...$('views').children].map((b) => b.textContent)).toEqual(['Texto', 'Dos columnas', 'Con su diseño']);
+  expect($('views').getAttribute('aria-label')).toBe('Cómo ver los cambios');
   expect($('save-html').textContent).toBe('Descargar HTML');
-  const box = $<HTMLInputElement>('side-by-side');
-  box.checked = true;
-  box.dispatchEvent(new Event('change'));
+  const pressed = (): string => document.querySelector('.views [aria-pressed="true"]')!.id;
+  expect(pressed()).toBe('view-text');
+  $('view-split').click();
+  expect(pressed()).toBe('view-split');
   expect(localStorage.getItem('view')).toBe('split');
   expect($('result').querySelector('table.split td.ins mark')!.textContent).toBe('Canarias');
   $('save-html').click();
   expect(await saved.pop()!.blob.text()).toContain('<table class="split">');
-  box.checked = false;
-  box.dispatchEvent(new Event('change'));
+  $('view-text').click();
+  expect(pressed()).toBe('view-text');
   expect(localStorage.getItem('view')).toBe('inline');
   expect($('result').querySelector('table.split')).toBeNull();
 });
@@ -247,25 +252,48 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms');
   // The browser would load viewer.html; here the load is announced by hand and the message caught.
   const posted: { type: string; html: string }[] = [];
-  const inner = { postMessage: (message: { type: string; html: string }) => void posted.push(message) };
-  Object.defineProperty(frame, 'contentWindow', { value: inner, configurable: true });
   let src = '';
-  Object.defineProperty(frame, 'src', { get: () => src, set: (url: string) => void (src = url), configurable: true });
+  const inner = {
+    postMessage: (message: { type: string; html: string }) => void posted.push(message),
+    location: {
+      replace: (url: string) => void (src = url), // replaced, so that Back does not walk the pages
+      get href(): string {
+        throw new Error('viewer.html has an origin of its own');
+      },
+    },
+  };
+  Object.defineProperty(frame, 'contentWindow', { value: inner, configurable: true });
+  const design = (): boolean => $('result').classList.contains('design');
   const loaded = async (): Promise<void> => {
     await until(() => frame.onload !== null);
-    expect(frame.src).toMatch(/viewer\.html\?\d+$/);
+    expect(src).toMatch(/viewer\.html\?\d+$/);
     frame.onload!(new Event('load'));
   };
 
   const opened = button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   expect(opened).toBe(false); // the page in the result does not fold
-  expect($<HTMLDialogElement>('viewer').open).toBe(true);
-  expect($('viewer-title').textContent).toBe('Primera · cambios');
+  // The viewer takes the report's place; the option that only the report has goes away.
+  expect(design()).toBe(true);
+  expect($('viewer').parentElement!.className).toBe('layout');
+  expect($('view-design').getAttribute('aria-pressed')).toBe('true');
+  expect($('only-changes-toggle').hidden).toBe(true);
+  expect(shown()).toBe('Primera · both');
   await loaded();
   await until(() => posted.length === 1);
   expect(posted[0]!.type).toBe('elpx-diff-page');
   expect(posted[0]!.html).toContain('Hola<ins> mundo</ins>');
   expect(posted[0]!.html).toContain("parent.postMessage({ type: 'elpx-diff-open'");
+  // Above the page: what changed on it, and its versions. Before another is shown, the page is asked where the
+  // reader is (it answers with the message that follows).
+  const modeButton = (which: string): HTMLButtonElement =>
+    document.querySelector<HTMLButtonElement>(`#viewer-modes [data-mode="${which}"]`)!;
+  expect($('viewer-counts').textContent).toBe('iDevices: 1 modificado');
+  expect($('viewer-modes').getAttribute('aria-label')).toBe('Qué versión de la página');
+  expect(document.querySelector('#viewer-modes [aria-pressed="true"]')!.textContent).toBe('Cambios');
+  modeButton('both').click(); // the one shown: nothing to do
+  modeButton('old').click();
+  expect(posted.pop() as unknown).toEqual({ type: 'elpx-diff-switch', mode: 'old' });
+  expect(shown()).toBe('Primera · both');
 
   // A link to another page, clicked in the frame, comes as a message; only the frame's are heard.
   const say = (data: unknown, source: unknown = inner): void => {
@@ -276,9 +304,9 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   say({ type: 'other', path: 'html/q.html' });
   say({ type: 'elpx-diff-open', path: 42 });
   say({ type: 'elpx-diff-open', path: 'html/zzz.html' }); // no such page
-  expect($('viewer-title').textContent).toBe('Primera · cambios');
+  expect(shown()).toBe('Primera · both');
   say({ type: 'elpx-diff-open', path: 'html/q.html' });
-  expect($('viewer-title').textContent).toBe('Segunda · cambios');
+  expect(shown()).toBe('Segunda · both');
   await loaded();
   await until(() => posted.length === 2);
   expect(posted[1]!.html).toContain('<main id="q"');
@@ -291,57 +319,95 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   // The bar's switch: the same page another way, at the iDevice in sight; nonsense is ignored.
   say({ type: 'elpx-diff-mode', mode: 'sideways' });
   say({ type: 'elpx-diff-mode', mode: 'old', anchor: 42 });
-  expect($('viewer-title').textContent).toBe('Segunda · versión anterior');
+  expect(shown()).toBe('Segunda · old');
   await loaded();
   await until(() => posted.length === 4);
   expect(posted[3]!.html).toContain('var ANCHOR = "";');
   expect(posted[3]!.html).toContain("classList.add('elpx-diff-off')"); // as it is, no marks
   say({ type: 'elpx-diff-mode', mode: 'new', anchor: 'idevice-x' });
-  expect($('viewer-title').textContent).toBe('Segunda · versión nueva');
+  expect(shown()).toBe('Segunda · new');
   await loaded();
   await until(() => posted.length === 5);
   expect(posted[4]!.html).toContain('var ANCHOR = "idevice-x";');
   say({ type: 'elpx-diff-open', path: SUMMARY_PAGE }); // "all the pages with changes": back to the result
-  expect($<HTMLDialogElement>('viewer').open).toBe(false);
-  // Closing stops the page, and a closed viewer hears nothing from it: it does not open again by itself.
-  expect(frame.src).toBe('about:blank');
+  expect(design()).toBe(false);
+  expect($('only-changes-toggle').hidden).toBe(false);
+  // Leaving stops the page, and nothing is heard from it then: the viewer does not come back by itself.
+  expect(src).toBe('about:blank');
   say({ type: 'elpx-diff-mode', mode: 'old' });
   say({ type: 'elpx-diff-open', path: 'html/q.html' });
-  expect($<HTMLDialogElement>('viewer').open).toBe(false);
+  expect(design()).toBe(false);
+
+  // The tab above the result: the page and the way it was left (the first that changed, the first time).
+  const posts = posted.length;
+  $('view-design').click();
+  expect(shown()).toBe('Segunda · new');
+  say({ type: 'elpx-diff-open', path: 'index.html' }); // the page's own menu chooses the page
+  say({ type: 'elpx-diff-mode', mode: 'both' });
+  expect(shown()).toBe('Primera · both');
+  await loaded();
+  await until(() => posted.length === posts + 1); // only the last asked for
+  expect(posted.at(-1)!.html).toContain('Hola<ins> mundo</ins>');
+  // The language changes what is around the page; moved with the result, the frame is given its page again.
+  $('lang').click();
+  expect(shown()).toBe('Primera · both');
+  await loaded();
+  await until(() => posted.length === posts + 2);
+  $('lang').click();
+  await loaded();
+  await until(() => posted.length === posts + 3);
+  posted.length = posts;
+  $('view-split').click(); // the report, in two columns
+  expect(design()).toBe(false);
+  expect($('result').querySelector('table.split')).not.toBeNull();
+  $('view-text').click();
 
   // A page the new version removed opens in its old version; it has no new one to switch to.
   choose('before', file(elpxWithSite([...pages, { id: 'r', title: 'Tercera' }]), 'antes.elpx'));
   await until(() => document.querySelectorAll('.view-page').length === 3);
   document.querySelector<HTMLButtonElement>('details.page.removed .view-page')!.click();
-  expect($('viewer-title').textContent).toBe('Tercera · cambios');
+  expect(shown()).toBe('Tercera · both');
+  expect(modeButton('new').disabled).toBe(true);
+  expect(modeButton('new').title).toBe('Esta página no está en la versión nueva');
+  expect(modeButton('old').disabled).toBe(false);
   await loaded();
   await until(() => posted.length === 6);
   expect(posted[5]!.html).toContain('<main id="r"');
   say({ type: 'elpx-diff-mode', mode: 'new' }); // it has none: the changes it is
-  expect($('viewer-title').textContent).toBe('Tercera · cambios');
+  expect(shown()).toBe('Tercera · both');
   say({ type: 'elpx-diff-mode', mode: 'old' });
-  expect($('viewer-title').textContent).toBe('Tercera · versión anterior');
+  expect(shown()).toBe('Tercera · old');
   // Links in the old version lead to old pages, shown the same way.
   say({ type: 'elpx-diff-open', path: 'index.html' });
-  expect($('viewer-title').textContent).toBe('Primera · versión anterior');
+  expect(shown()).toBe('Primera · old');
   await loaded(); // only the last of these three asks gets its page
   await until(() => posted.length === 7);
   expect(posted[6]!.html).toContain("classList.add('elpx-diff-off')");
-  $<HTMLDialogElement>('viewer').close();
+  // A page only the other version has, listed in the menu, opens in the version that has it.
+  say({ type: 'elpx-diff-open', page: 99 }); // no such page
+  say({ type: 'elpx-diff-open', page: 2 });
+  expect(shown()).toBe('Tercera · both');
+  await loaded();
+  await until(() => posted.length === 8);
+  expect(posted.pop()!.html).toContain('<main id="r"');
+  $('view-text').click();
   choose('before', file(elpxWithSite(pages), 'antes.elpx'));
   await until(() => document.querySelectorAll('.view-page').length === 2);
 
   // A page that cannot be put together (its style sheet is compressed in a way nobody reads): said in the frame.
+  const damage = (zip: Uint8Array, entry: string): void => {
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    const name = new TextEncoder().encode(entry);
+    for (let p = 0; p + 46 + name.length <= zip.length; p++)
+      if (view.getUint32(p, true) === 0x02014b50 && name.every((c, k) => zip[p + 46 + k] === c))
+        view.setUint16(p + 10, 99, true); // compression method
+  };
   const site = exportedSite(newer);
   const broken = elpxWithSite(newer, {
     'index.html': site['index.html']!.replace('<head>', '<head><link rel="stylesheet" href="theme/style.css">'),
     'theme/style.css': 'body{}',
   });
-  const view = new DataView(broken.buffer, broken.byteOffset, broken.byteLength);
-  const name = new TextEncoder().encode('theme/style.css');
-  for (let p = 0; p + 46 + name.length <= broken.length; p++)
-    if (view.getUint32(p, true) === 0x02014b50 && name.every((c, k) => broken[p + 46 + k] === c))
-      view.setUint16(p + 10, 99, true); // compression method
+  damage(broken, 'theme/style.css');
   choose('after', file(broken, 'rota.elpx'));
   await until(() => document.querySelectorAll('.view-page').length === 2);
   document.querySelector<HTMLButtonElement>('#page-0 .view-page')!.click();
@@ -349,15 +415,28 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   await until(() => posted.length === 8);
   expect(posted[7]!.html).toContain('No se ha podido mostrar la página: ');
   expect(posted[7]!.html).toContain('unsupported compression method');
-  $<HTMLDialogElement>('viewer').close();
-  delete (frame as unknown as Record<string, unknown>)['contentWindow'];
-  delete (frame as unknown as Record<string, unknown>)['src'];
+  // Such a page has no script to ask where the reader is: its other version is just shown.
+  modeButton('old').click();
+  expect(shown()).toBe('Primera · old');
+  await loaded();
+  await until(() => posted.length === 9);
 
-  // Full screen: the button asks for it and offers to leave it; closing the viewer leaves it too.
+  // A package whose exported pages cannot be read still has its report: it just cannot be seen with its design.
+  const unreadable = elpxWithSite(newer);
+  damage(unreadable, 'index.html');
+  choose('after', file(unreadable, 'ilegible.elpx'));
+  await until(() => !$('actions').hidden);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect($('status').textContent).toBe('Comparación lista: 0 añadidos, 1 modificados, 0 eliminados.');
+  expect($<HTMLButtonElement>('view-design').disabled).toBe(true);
+  expect($('view-design').title).toStartWith('Estos archivos no traen las páginas exportadas');
+  expect(document.querySelectorAll('.view-page')).toHaveLength(0);
+
+  // Full screen: the button asks for it and offers to leave it; going back to the report leaves it too.
   const full = $('viewer-full');
   expect(full.textContent).toBe('Pantalla completa');
   let [asked, left] = [0, 0];
-  document.documentElement.requestFullscreen = async (): Promise<void> => void asked++;
+  $('viewer').requestFullscreen = async (): Promise<void> => void asked++;
   document.exitFullscreen = async (): Promise<void> => void left++;
   full.click();
   expect(asked).toBe(1);
@@ -366,8 +445,7 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   expect(full.textContent).toBe('Salir de pantalla completa');
   full.click();
   expect(left).toBe(1);
-  $<HTMLDialogElement>('viewer').showModal();
-  $<HTMLDialogElement>('viewer').close();
+  $('view-text').click();
   expect(left).toBe(2);
   delete (document as unknown as Record<string, unknown>)['fullscreenElement'];
   document.dispatchEvent(new Event('fullscreenchange'));
@@ -377,6 +455,8 @@ test('each page of the result opens marked in the viewer, its scripts cut off fr
   choose('after', file(v2(), 'v2.elpx'));
   await until(() => !$('actions').hidden);
   expect(document.querySelectorAll('.view-page')).toHaveLength(0); // no exported website, no button
+  expect($<HTMLButtonElement>('view-design').disabled).toBe(true);
+  delete (frame as unknown as Record<string, unknown>)['contentWindow'];
 });
 
 test('dropping: highlights the zone, takes the file, and never lets the browser open it', async () => {
@@ -431,4 +511,27 @@ test('a late result never replaces a newer one', async () => {
   await until(() => document.querySelectorAll('.compare span')[1]?.textContent === 'final.elpx');
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(document.querySelectorAll('.compare span')[1]!.textContent).toBe('final.elpx');
+});
+
+test('the example: two versions of the manual, served by this site, compared at a click', async () => {
+  const real = globalThis.fetch;
+  const asked: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    asked.push(url);
+    return new Response(file(url.includes('3') ? v1() : v2(), url));
+  }) as unknown as typeof fetch;
+  expect($('example').textContent).toStartWith('Probar con un ejemplo: el manual de eXeLearning');
+  $('example').click();
+  expect($('status').textContent).toBe('Cargando el ejemplo…');
+  await until(() => document.querySelectorAll('.compare span')[1]?.textContent === 'manual-4.elpx');
+  expect(asked).toEqual(['examples/manual-3.elpx', 'examples/manual-4.elpx']);
+  expect(document.querySelectorAll('.compare span')[0]!.textContent).toBe('manual-3.elpx');
+  expect(stats()).toStartWith('+3');
+
+  // A site built without them says so.
+  globalThis.fetch = (async () => new Response('', { status: 404 })) as unknown as typeof fetch;
+  $('example').click();
+  await until(() => $('status').classList.contains('error'));
+  expect($('status').textContent).toBe('No se ha podido cargar el ejemplo: manual-3.elpx: HTTP 404');
+  globalThis.fetch = real;
 });
