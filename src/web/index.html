@@ -87,13 +87,42 @@
       </div>
       <p class="status" id="status" role="status"></p>
       <div class="actions" id="actions" hidden>
-        <label class="toggle"><input type="checkbox" id="only-changes" /> <span data-t="onlyChanges"></span></label>
-        <label class="toggle"><input type="checkbox" id="side-by-side" /> <span data-t="sideBySide"></span></label>
+        <!-- What is seen: the report of the text, in a column or in two, or each page with the project's design. -->
+        <div class="views" role="group" id="views">
+          <button type="button" id="view-text" aria-pressed="true" data-t="viewText"></button>
+          <button type="button" id="view-split" aria-pressed="false" data-t="viewSplit"></button>
+          <button type="button" id="view-design" aria-pressed="false" disabled data-t="viewDesign"></button>
+        </div>
+        <label class="toggle" id="only-changes-toggle"
+          ><input type="checkbox" id="only-changes" /> <span data-t="onlyChanges"></span
+        ></label>
         <button type="button" class="primary" id="print" data-t="print"></button>
         <button type="button" id="save-html" data-t="saveHtml"></button>
         <button type="button" id="save-json" data-t="saveJson"></button>
       </div>
       <div id="result" tabindex="-1"></div>
+      <!-- A page of the project, marked, in viewer.html: sandboxed without allow-same-origin, so the page's
+           scripts run with an origin of their own, and with no network (its own policy). No pop-ups: links out
+           do not open. Once there is a result it sits in it, in place of the report. -->
+      <section id="viewer" class="viewer" aria-labelledby="viewer-title">
+        <header>
+          <div class="viewer-page">
+            <h3 id="viewer-title"></h3>
+            <p class="counts" id="viewer-counts"></p>
+          </div>
+          <!-- The page as it was, the changes marked on it, or as it is now. -->
+          <div class="modes" role="group" id="viewer-modes">
+            <button type="button" data-mode="old" data-t="modeOld"></button>
+            <button type="button" data-mode="both" data-t="modeBoth"></button>
+            <button type="button" data-mode="new" data-t="modeNew"></button>
+          </div>
+          <button type="button" id="viewer-full"></button>
+        </header>
+        <iframe id="viewer-frame" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe>
+        <p class="viewer-note" data-t="viewNote"></p>
+      </section>
+      <!-- Two versions of eXeLearning's manual, served by this site (scripts/build.ts), to see the tool at work. -->
+      <p class="example"><button type="button" class="link" id="example" data-t="example"></button></p>
       <noscript>Esta herramienta necesita JavaScript. / This tool needs JavaScript.</noscript>
     </main>
     <footer class="app-footer">
@@ -126,17 +155,6 @@
         </div>
       </div>
     </footer>
-    <!-- A page of the new version, marked, in viewer.html: sandboxed without allow-same-origin, so the page's
-         scripts run with an origin of their own, and with no network (its own policy). No pop-ups: links out do not open. -->
-    <dialog id="viewer" class="viewer" aria-labelledby="viewer-title">
-      <header>
-        <h2 id="viewer-title"></h2>
-        <button type="button" id="viewer-full"></button>
-        <button type="button" class="primary" data-close data-t="close"></button>
-        <p class="viewer-note" data-t="viewNote"></p>
-      </header>
-      <iframe id="viewer-frame" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe>
-    </dialog>
     <dialog id="cli-panel" aria-labelledby="cli-title">
       <h2 id="cli-title" data-t="cliTitle"></h2>
       <p data-t="cliIntro"></p>

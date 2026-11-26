@@ -33,23 +33,24 @@ Each page of the report says how many of its iDevices were added, modified and r
 
 ### Marked pages
 
-To review the changes as readers will see them, each page of the comparison in the web app has a
-**View with its design** link: it shows the page of the new version, as eXeLearning exported it inside
-the `.elpx`, with the changes marked in place. Added iDevices have a green background; modified ones
-an amber bar, their new paragraphs in green and their edited ones in amber, and, right above them,
-what changed in them, the removed words struck through and the new ones highlighted. A bar in a
-corner, always in sight, sums up the page's changes and switches between three ways of seeing the
-page, landing on the same iDevice: the **old version** as it was exported then, the **changes**
-(the default, with all the marks) and the **new version**, both as readers see them. A box at the
-top gives what does not fit there, such as the text of what was removed. A page the new version
-removed shows its changes on its old version. The viewer fills the window, and can go full screen. The
-page works as it does for readers (its menu, "show more" buttons, tabs…), and its links to other
-pages open them there.
+To review the changes as readers will see them, the web app shows the comparison in three ways:
+**Text**, **Two columns** and **With its design**. The last one shows each page as eXeLearning
+exported it inside the `.elpx`, with the changes marked in place. Added iDevices have a green
+background; modified ones an amber bar, their new paragraphs in green and their edited ones in amber,
+and, right above them, what changed in them, the removed words struck through and the new ones
+highlighted. Above the page, its changes are counted and three buttons switch between the **old**
+version as it was exported then, the **changes** (the default, with all the marks) and the **new**
+version, both as readers see them, landing on the same iDevice. A box at the top of the page gives
+what does not fit there, such as the text of what was removed. The page works as it does for readers
+(its "show more" buttons, tabs…) and its own menu leads from page to page: there, the pages that
+changed are marked, the ones the new version added are in green, and the ones it removed, in red and
+struck through. The viewer can go full screen.
 
 Its scripts run cut off from the app (see [Safety](#safety)): whatever they would fetch from the
 internet, such as an embedded video, does not show. The CLI gives the whole marked website as a ZIP
 (`--marked`), with `elpx-diff.html`, a summary page that lists every page with changes, the most
-changed first; there, the bar turns the marks off and on.
+changed first. There, a bar in a corner of each page does what the app does above it: it sums up the
+page's changes and switches between the three versions.
 
 ## CLI
 
@@ -121,7 +122,7 @@ bun run dev        # web app with reload
 bun run cli a.elpx b.elpx
 bun run check      # bun lint + bun fmt --check, bun check (types), bun test --coverage
 bun run fix        # apply lint fixes and format
-bun run build      # dist/: index.js + types, cli.js, web/
+bun run build      # dist/: index.js + types, cli.js, web/ (with the two manuals of its example, downloaded once)
 ```
 
 Everything runs on Bun (canary in CI): `bun lint`, `bun fmt`, `bun check`, `bun test` and

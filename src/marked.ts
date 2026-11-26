@@ -14,10 +14,14 @@ export const SUMMARY_PAGE = 'elpx-diff.html';
 /** Which version of the project a marked page belongs to. */
 export type Side = 'new' | 'old';
 
-/** What a page shown in the viewer posts to the app when one of its links leads to another page of the package. */
+/**
+ * What a page shown in the viewer posts to the app when one of its links leads to another page: its path in the
+ * package or, for a page only the other version has (listed in the menu), its place in the comparison's pages.
+ */
 export interface OpenMessage {
   type: 'elpx-diff-open';
-  path: string;
+  path?: string;
+  page?: number;
 }
 /**
  * How the viewer shows a page: the old version or the new one as they are,
@@ -70,6 +74,14 @@ html:not(.elpx-diff-off) [data-elpx-diff=added]{background:#e6ffec!important;box
 html:not(.elpx-diff-off) [data-elpx-diff=modified]{box-shadow:-6px 0 0 #bf8700!important}
 html:not(.elpx-diff-off) [data-elpx-diff-p=added]{background:#d1f7dc!important;box-shadow:-4px 0 0 #1a7f37!important;color:#1b1f24!important}
 html:not(.elpx-diff-off) [data-elpx-diff-p=edited]{background:#fff3c4!important;box-shadow:-4px 0 0 #bf8700!important;color:#1b1f24!important}
+html:not(.elpx-diff-off) nav a[data-elpx-diff-nav=added]{background:#e6ffec!important;color:#116329!important}
+html:not(.elpx-diff-off) nav a[data-elpx-diff-nav=removed]{background:#ffebe9!important;color:#a40e26!important;text-decoration:line-through!important}
+html:not(.elpx-diff-off) nav a[data-elpx-diff-nav]::after{content:" ~";color:#7d4e00;font-weight:700}
+html:not(.elpx-diff-off) nav a[data-elpx-diff-nav=added]::after{content:" +";color:inherit}
+html:not(.elpx-diff-off) nav a[data-elpx-diff-nav=removed]::after{content:" −";color:inherit;display:inline-block;text-decoration:none}
+nav li[data-elpx-diff-nav-extra] a{display:block}
+.elpx-diff-off nav li[data-elpx-diff-nav-extra]{display:none!important}
+.elpx-diff-in-app .elpx-diff-float{display:none!important}
 html:not(.elpx-diff-off) [data-elpx-diff=removed]{background:#ffebe9!important;box-shadow:-6px 0 0 #a40e26!important;color:#1b1f24!important}
 html:not(.elpx-diff-off) [data-elpx-diff-p=removed]{background:#ffd7d5!important;box-shadow:-4px 0 0 #a40e26!important;color:#1b1f24!important}
 .elpx-diff-off .elpx-diff-key,.elpx-diff-off .elpx-diff-tag,.elpx-diff-off .elpx-diff-changes,.elpx-diff-off .elpx-diff-box{display:none!important}
@@ -148,10 +160,13 @@ const viewScript = (path: string, anchor = '', clean = false): string => `<scrip
   try { document.cookie; } catch (e) {
     try { Object.defineProperty(document, 'cookie', { get: function () { return ''; }, set: function () {}, configurable: true }); } catch (e2) {}
   }
-  // The bar's switch: another way of seeing the page, landing on the iDevice now in sight.
-  document.addEventListener('click', function (event) {
-    var button = event.target && event.target.closest && event.target.closest('[data-elpx-diff-mode]');
-    if (!button || button.disabled || button.getAttribute('aria-pressed') === 'true') return;
+  // In the app the versions are switched from its own header, above the page: the bar is not shown.
+  document.documentElement.classList.add('elpx-diff-in-app');
+  // Another way of seeing the page, asked for by the app: it lands on the iDevice now in sight.
+  addEventListener('message', function (event) {
+    if (event.source === parent && event.data && event.data.type === 'elpx-diff-switch') ask(event.data.mode);
+  });
+  function ask(mode) {
     // The iDevice in sight, then those before it, then those after: the other version lands on the first it has.
     var nodes = [].slice.call(document.querySelectorAll('.idevice_node[id]'));
     var seen = 0;
@@ -159,8 +174,8 @@ const viewScript = (path: string, anchor = '', clean = false): string => `<scrip
     var order = nodes.slice(0, seen + 1).reverse().concat(nodes.slice(seen + 1));
     // At the top of the page, the other one opens at its top too.
     var anchor = scrollY < 50 ? '' : order.slice(0, 40).map(function (node) { return node.id; }).join(' ');
-    parent.postMessage({ type: 'elpx-diff-mode', mode: button.getAttribute('data-elpx-diff-mode'), anchor: anchor }, '*');
-  });
+    parent.postMessage({ type: 'elpx-diff-mode', mode: mode, anchor: anchor }, '*');
+  }
   // Written in place of viewer.html, the page gets no load event: it waits until it is parsed, then lands, and
   // again a moment later, once the theme's scripts have laid it out.
   var target = null;
@@ -182,6 +197,13 @@ const viewScript = (path: string, anchor = '', clean = false): string => `<scrip
   document.addEventListener('click', function (event) {
     var link = event.target && event.target.closest && event.target.closest('a[href], area[href]');
     if (!link) return;
+    // A page only the other version has, listed in the menu: the app opens it in that version.
+    var other = link.getAttribute('data-elpx-diff-page');
+    if (other !== null) {
+      event.preventDefault();
+      parent.postMessage({ type: 'elpx-diff-open', page: Number(other) }, '*');
+      return;
+    }
     var href = link.getAttribute('href');
     if (!href || href.charAt(0) === '#' || /^(https?|mailto):/i.test(href)) return;
     event.preventDefault();
@@ -437,6 +459,14 @@ const MIME: Record<string, string> = {
 // A file bigger than this is left out of a page shown in the app (a picture that size is rare in a page).
 const MAX_INLINE = 8 * 1024 * 1024;
 
+/** Where the last `tag` before `at` starts in `text` (a tag of that very name), or -1. */
+function before(text: string, tag: string, at: number): number {
+  let i = at;
+  do i = i > 0 ? text.lastIndexOf(tag, i - 1) : -1;
+  while (i >= 0 && !/[\s>]/.test(text.charAt(i + tag.length)));
+  return i;
+}
+
 /** `rel` as a path inside the package, seen from the file at `base`; undefined when it points elsewhere. */
 export function resolvePath(base: string, rel: string): string | undefined {
   rel = rel.trim();
@@ -465,9 +495,58 @@ function reader(
   marks: Map<string, IdeviceDiff>,
   side: Side,
   lang: Lang,
+  order: PageDiff[],
 ) {
+  /** What a page only the other version has is, in the comparison. */
+  const other = side === 'new' ? 'removed' : 'added';
   const utf8 = new TextDecoder();
   const text = async (path: string): Promise<string> => utf8.decode(await entries.get(path)!.read());
+  /** The page each exported file is, known once they are read. */
+  const byPath = new Map<string, PageDiff>();
+  /**
+   * In the page's own menu, each link to a page that changed says how (the style sheet paints it), and the
+   * pages only the other version has are listed too, each before the page that follows it in the comparison:
+   * removed ones in the new version's menu, added ones in the old version's. Those have nowhere to lead,
+   * except in the app (`linked`), which opens them in the version that has them.
+   */
+  const menu = (html: string, path: string, language: Lang, linked: boolean): string =>
+    html.replace(/<nav\b[\s\S]*?<\/nav\s*>/gi, (nav) => {
+      const t = strings(language);
+      const LINK = /<a\b[^>]*?\shref\s*=\s*(["'])([^"']*)\1/gi;
+      const page = (rel: string): PageDiff | undefined => byPath.get(resolvePath(path, rel) ?? '');
+      // Where each page's entry starts: the <li> its link is in.
+      const starts = new Map<PageDiff, number>();
+      for (const link of nav.matchAll(LINK)) {
+        const target = page(link[2]!);
+        const li = before(nav, '<li', link.index);
+        if (target && li >= 0 && !starts.has(target)) starts.set(target, li);
+      }
+      const end = before(nav, '</ul', nav.length);
+      const extra = new Map<number, string>();
+      if (starts.size)
+        order.forEach((missing, n) => {
+          if (missing.status !== other) return;
+          const next = order.slice(n + 1).find((p) => starts.has(p));
+          const at = next ? starts.get(next)! : end;
+          if (at < 0) return;
+          const to = linked ? ` href="#" data-elpx-diff-page="${n}"` : '';
+          const item = `<li data-elpx-diff-nav-extra><a${to} data-elpx-diff-nav="${other}" title="${esc(other === 'added' ? t.newPage : t.removedPage)}">${esc(missing.title || t.untitled)}</a></li>`;
+          extra.set(at, (extra.get(at) ?? '') + item);
+        });
+      let out = '';
+      let from = 0;
+      for (const at of [...extra.keys()].sort((x, y) => x - y)) {
+        out += mark(nav.slice(from, at)) + extra.get(at)!;
+        from = at;
+      }
+      return out + mark(nav.slice(from));
+      function mark(part: string): string {
+        return part.replace(LINK, (tag, _q: string, rel: string) => {
+          const status = page(rel)?.status ?? 'unchanged';
+          return status === 'unchanged' ? tag : `${tag} data-elpx-diff-nav="${status}"`;
+        });
+      }
+    });
   /** Each page's exported file and its HTML, read once. */
   let exported: Promise<Map<PageDiff, { path: string; html: string }>> | undefined;
   const pages = (): Promise<Map<PageDiff, { path: string; html: string }>> =>
@@ -479,6 +558,7 @@ function reader(
         const page = id === undefined ? undefined : byId.get(id);
         if (page && !found.has(page)) found.set(page, { path, html });
       }
+      for (const [page, file] of found) byPath.set(file.path, page);
       return found;
     })());
   const marked = (
@@ -487,7 +567,13 @@ function reader(
     html: string,
     language = lang,
     viewer?: { mode: Mode; old: boolean; new: boolean },
-  ): string => markPage(html, page, marks, path.includes('/') ? '../' : '', language, side, viewer);
+  ): string =>
+    menu(
+      markPage(html, page, marks, path.includes('/') ? '../' : '', language, side, viewer),
+      path,
+      language,
+      !!viewer,
+    );
 
   const inlined = new Map<string, Promise<string | undefined>>();
   /** A file of the package as a data: URL, or undefined when it is missing, too large or not a picture or a font. */
@@ -667,8 +753,8 @@ export async function markProject(
         if (idevice.status === 'removed' || idevice.status === 'modified') oldMarks.set(idevice.id, idevice);
       }
   }
-  const newSide = reader(entries, byId, marks, 'new', lang);
-  const oldSide = reader(oldEntries, oldById, oldMarks, 'old', lang);
+  const newSide = reader(entries, byId, marks, 'new', lang, diff.pages);
+  const oldSide = reader(oldEntries, oldById, oldMarks, 'old', lang, diff.pages);
   const sides = { new: newSide, old: oldSide };
 
   return {
